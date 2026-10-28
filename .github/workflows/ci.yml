@@ -54,17 +54,28 @@ jobs:
           xcrun simctl boot "$udid"
           xcrun simctl bootstatus "$udid" -b
 
-      - name: Build and test, recording the simulator
+      # Built first, so the video holds the app and not three minutes of
+      # the home screen while Xcode compiles.
+      - name: Build for testing
+        run: |
+          xcodebuild build-for-testing \
+            -project Calcpace.xcodeproj \
+            -scheme Calcpace \
+            -destination "id=$SIMULATOR" \
+            -derivedDataPath build
+
+      - name: Test, recording the simulator
         run: |
           mkdir -p artifacts
           xcrun simctl io "$SIMULATOR" recordVideo --codec=h264 --force artifacts/simulator.mp4 &
           recorder=$!
           sleep 2
           set +e
-          xcodebuild test \
+          xcodebuild test-without-building \
             -project Calcpace.xcodeproj \
             -scheme Calcpace \
             -destination "id=$SIMULATOR" \
+            -derivedDataPath build \
             -resultBundlePath artifacts/Calcpace.xcresult
           status=$?
           # SIGINT lets simctl finish the file; a recorder that ignores it
