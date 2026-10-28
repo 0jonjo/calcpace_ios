@@ -11,6 +11,27 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         Hotwire.config.applicationUserAgentPrefix = AppUserAgent.prefix()
         Hotwire.config.backButtonDisplayMode = .minimal
         Hotwire.config.showDoneButtonOnModals = true
+        Hotwire.config.defaultViewController = { url in WebViewController(url: url) }
+
+        // Native pieces the site can drive: "share-image" hands a run's share
+        // card to the share sheet. The user agent lists them, so the site only
+        // talks to components this build has.
+        Hotwire.registerBridgeComponents([ShareImageComponent.self])
+
+        // The bundled copy works offline and on first launch; the site's copy
+        // (calcpace_web's ConfigurationsController#ios_v1), once fetched, wins
+        // and lets routing change without a store release.
+        Hotwire.loadPathConfiguration(from: [
+            .file(Bundle.main.url(forResource: "path-configuration", withExtension: "json")!),
+            .server(Self.rootURL.appendingPathComponent("configurations/ios_v1.json"))
+        ])
+
+        // A solid bar, like the site's header, rather than a see-through one
+        // at the top of the page that blurs once it scrolls.
+        let bar = UINavigationBarAppearance()
+        bar.configureWithOpaqueBackground()
+        UINavigationBar.appearance().standardAppearance = bar
+        UINavigationBar.appearance().scrollEdgeAppearance = bar
 #if DEBUG
         Hotwire.config.debugLoggingEnabled = true
 #endif

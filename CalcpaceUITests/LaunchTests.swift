@@ -13,19 +13,20 @@ final class LaunchTests: XCTestCase {
         attachScreenshot(of: app, named: "home")
     }
 
-    // The front page's quick calculator, then a tab of the bottom bar and
-    // back: what someone does in the first minute, and the part of the video
-    // worth watching.
+    // The front page's quick calculator, a screen pushed from it and back,
+    // then a tab of the bottom bar: what someone does in the first minute,
+    // and the part of the video worth watching.
     func testPredictsARaceAndChangesTabs() throws {
         let app = launch()
         let webView = app.webViews.firstMatch
+        XCTAssertFalse(app.navigationBars.firstMatch.exists, "the front page is a tab root: the site's header only")
 
         // A 10K in 50:00, the known race the picker starts on.
         tap(webView.buttons["50:00"].firstMatch)
         tap(webView.buttons["Predict Marathon"].firstMatch)
         // A link only the result draws: "VO2max" is on the page before it.
-        let result = webView.links.matching(NSPredicate(format: "label BEGINSWITH %@", "See full details")).firstMatch
-        XCTAssertTrue(result.waitForExistence(timeout: 30), "no prediction")
+        let details = webView.links.matching(NSPredicate(format: "label BEGINSWITH %@", "See full details")).firstMatch
+        XCTAssertTrue(details.waitForExistence(timeout: 30), "no prediction")
         // The result is drawn under the button, below the fold. A slow drag
         // held at its end, not a swipe, so the page stops where the finger does.
         let from = webView.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75))
@@ -34,15 +35,24 @@ final class LaunchTests: XCTestCase {
         pause()
         attachScreenshot(of: app, named: "prediction")
 
-        tap(webView.links["Convert"].firstMatch)
+        // The calculator is not a tab: it is pushed, under the app's bar.
+        tap(details)
         let back = app.navigationBars.buttons.firstMatch
-        XCTAssertTrue(back.waitForExistence(timeout: 30), "the tab did not open a new screen")
+        XCTAssertTrue(back.waitForExistence(timeout: 30), "the calculator did not open under a Back button")
         pause()
-        attachScreenshot(of: app, named: "converter")
+        attachScreenshot(of: app, named: "pushed")
 
         back.tap()
         XCTAssertTrue(webView.buttons["Predict Marathon"].firstMatch.waitForExistence(timeout: 30), "back did not return to the front page")
         pause()
+        XCTAssertFalse(app.navigationBars.firstMatch.exists, "the bar stayed on the front page after Back")
+
+        // A tab replaces the root: no bar, nothing to go back to.
+        tap(webView.links["Convert"].firstMatch)
+        XCTAssertTrue(webView.buttons["Predict Marathon"].firstMatch.waitForNonExistence(timeout: 30), "the converter did not open")
+        pause()
+        XCTAssertFalse(app.navigationBars.firstMatch.exists, "a tab opened under the app's bar")
+        attachScreenshot(of: app, named: "tab")
     }
 
     private func launch() -> XCUIApplication {
