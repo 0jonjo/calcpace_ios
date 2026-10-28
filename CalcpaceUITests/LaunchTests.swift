@@ -23,9 +23,9 @@ final class LaunchTests: XCTestCase {
         // A 10K in 50:00, the known race the picker starts on.
         tap(webView.buttons["50:00"].firstMatch)
         tap(webView.buttons["Predict Marathon"].firstMatch)
-        // Drawn upper-case by CSS, which WebKit may or may not hand on.
-        let vo2max = webView.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", "VO2max")).firstMatch
-        XCTAssertTrue(vo2max.waitForExistence(timeout: 30), "no prediction")
+        // A link only the result draws: "VO2max" is on the page before it.
+        let result = webView.links.matching(NSPredicate(format: "label BEGINSWITH %@", "See full details")).firstMatch
+        XCTAssertTrue(result.waitForExistence(timeout: 30), "no prediction")
         pause()
         attachScreenshot(of: app, named: "prediction")
 
