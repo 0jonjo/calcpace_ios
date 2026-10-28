@@ -54,19 +54,43 @@ jobs:
           xcrun simctl boot "$udid"
           xcrun simctl bootstatus "$udid" -b
 
-      - name: Build and test, recording the simulator
+      # Built first, so the video holds the app and not three minutes of
+      # the home screen while Xcode compiles.
+      - name: Build for testing
         run: |
-          mkdir -p artifacts
-          xcrun simctl io "$SIMULATOR" recordVideo --codec=h264 --force artifacts/simulator.mp4 &
-          recorder=$!
-          sleep 2
-          set +e
-          xcodebuild test \
+          xcodebuild build-for-testing \
             -project Calcpace.xcodeproj \
             -scheme Calcpace \
             -destination "id=$SIMULATOR" \
-            -resultBundlePath artifacts/Calcpace.xcresult
-          status=$?
+            -derivedDataPath build
+
+      # simulator.mp4 is the whole run, installs included; app.mp4 is cut to
+      # the UI tests, by the clock: when the recorder said it started, and
+      # when xcodebuild printed the UI suite's start and end.
+      - name: Test, recording the simulator
+        run: |
+          mkdir -p artifacts
+          xcrun simctl io "$SIMULATOR" recordVideo --codec=h264 --force artifacts/simulator.mp4 > artifacts/recorder.log 2>&1 &
+          recorder=$!
+          for _ in $(seq 1 30); do
+            grep -q "Recording started" artifacts/recorder.log && { date +%s > artifacts/recording_start; break; }
+            sleep 1
+          done
+          set +e
+          xcodebuild test-without-building \
+            -project Calcpace.xcodeproj \
+            -scheme Calcpace \
+            -destination "id=$SIMULATOR" \
+            -derivedDataPath build \
+            -resultBundlePath artifacts/Calcpace.xcresult 2>&1 |
+            while IFS= read -r line; do
+              echo "$line"
+              case "$line" in
+                *"Suite 'CalcpaceUITests.xctest' started"*) date +%s > artifacts/ui_start ;;
+                *"Suite 'CalcpaceUITests.xctest' passed"*|*"Suite 'CalcpaceUITests.xctest' failed"*) date +%s > artifacts/ui_end ;;
+              esac
+            done
+          status=${PIPESTATUS[0]}
           # SIGINT lets simctl finish the file; a recorder that ignores it
           # must not hold the job until the timeout.
           kill -INT "$recorder" 2>/dev/null
@@ -74,6 +98,21 @@ jobs:
           kill -9 "$recorder" 2>/dev/null
           wait "$recorder" 2>/dev/null
           exit $status
+
+      - name: Cut the video to the UI tests
+        if: always()
+        timeout-minutes: 5
+        continue-on-error: true
+        run: |
+          [ -f artifacts/simulator.mp4 ] && [ -f artifacts/recording_start ] && [ -f artifacts/ui_start ] || exit 0
+          [ -f artifacts/ui_end ] || date +%s > artifacts/ui_end
+          start=$(( $(cat artifacts/ui_start) - $(cat artifacts/recording_start) - 2 ))
+          [ "$start" -ge 0 ] || start=0
+          duration=$(( $(cat artifacts/ui_end) - $(cat artifacts/ui_start) + 4 ))
+          echo "app.mp4: from ${start}s, ${duration}s long"
+          avconvert --source artifacts/simulator.mp4 --output artifacts/app.mp4 \
+            --preset PresetHighestQuality --start "$start" --duration "$duration" --replace ||
+            { rm -f artifacts/app.mp4; echo "::warning::could not cut the video; simulator.mp4 has it all"; }
 
       - name: Export the test screenshots
         if: always()
