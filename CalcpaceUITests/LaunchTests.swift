@@ -26,6 +26,10 @@ final class LaunchTests: XCTestCase {
         // A link only the result draws: "VO2max" is on the page before it.
         let result = webView.links.matching(NSPredicate(format: "label BEGINSWITH %@", "See full details")).firstMatch
         XCTAssertTrue(result.waitForExistence(timeout: 30), "no prediction")
+        // The result is drawn under the button, below the fold. A slow drag,
+        // not a swipe, so the page stops where the finger does.
+        let from = webView.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75))
+        from.press(forDuration: 0.1, thenDragTo: webView.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3)))
         pause()
         attachScreenshot(of: app, named: "prediction")
 
