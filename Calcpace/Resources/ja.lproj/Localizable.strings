@@ -1,0 +1,2 @@
+/* The runs list's CSV export could not be fetched or shared (CsvExportRouteDecisionHandler). */
+"export_csv_failed" = "ランニングをエクスポートできませんでした。もう一度お試しください。";

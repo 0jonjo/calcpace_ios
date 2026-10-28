@@ -18,6 +18,16 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         // talks to components this build has.
         Hotwire.registerBridgeComponents([ShareImageComponent.self])
 
+        // Order matters: the first handler that matches decides. The runs
+        // list's CSV export must be caught before in-app navigation claims
+        // every calcpace.app URL. The other three are Hotwire's defaults.
+        Hotwire.registerRouteDecisionHandlers([
+            CsvExportRouteDecisionHandler(),
+            AppNavigationRouteDecisionHandler(),
+            SafariViewControllerRouteDecisionHandler(),
+            SystemNavigationRouteDecisionHandler()
+        ])
+
         // The bundled copy works offline and on first launch; the site's copy
         // (calcpace_web's ConfigurationsController#ios_v1), once fetched, wins
         // and lets routing change without a store release.

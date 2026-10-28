@@ -1,0 +1,2 @@
+/* The runs list's CSV export could not be fetched or shared (CsvExportRouteDecisionHandler). */
+"export_csv_failed" = "No se pudieron exportar tus carreras. Inténtalo de nuevo.";
