@@ -14,10 +14,10 @@ final class LaunchTests: XCTestCase {
         let webView = app.webViews.firstMatch
         XCTAssertTrue(webView.waitForExistence(timeout: 30), "no web view")
 
-        let brand = webView.descendants(matching: .any)
-            .matching(NSPredicate(format: "label CONTAINS[c] %@", "Calcpace"))
-            .firstMatch
-        XCTAssertTrue(brand.waitForExistence(timeout: 60), "calcpace.app did not load")
+        // The calculator's fields: a Cloudflare challenge page also says
+        // "calcpace.app", but has none.
+        XCTAssertTrue(webView.textFields.firstMatch.waitForExistence(timeout: 60), "calcpace.app did not load")
+        XCTAssertFalse(webView.staticTexts["Just a moment..."].exists, "Cloudflare challenge instead of the site")
 
         attachScreenshot(of: app, named: "home")
     }

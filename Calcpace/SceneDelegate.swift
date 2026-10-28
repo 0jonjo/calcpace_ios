@@ -4,7 +4,8 @@ import UIKit
 final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     var window: UIWindow?
 
-    // Lazy, so it is made after AppDelegate has configured Hotwire.
+    // Made after AppDelegate has configured Hotwire (the user agent), since
+    // the Navigator builds its WebViews when it is created.
     private lazy var navigator = Navigator(
         configuration: .init(name: "main", startLocation: AppDelegate.rootURL)
     )
