@@ -1,0 +1,30 @@
+{
+  "settings": {},
+  "rules": [
+    {
+      "patterns": [
+        ".*"
+      ],
+      "properties": {
+        "context": "default",
+        "pull_to_refresh_enabled": true
+      }
+    },
+    {
+      "patterns": [
+        "^(?:/(?:en|pt\\-BR|es|de|fr|ja|it|nl|ko|sv|pl|no|zh\\-TW|hu|cs|ru))?/?(?:\\?|$)",
+        "^(?:/(?:en|pt\\-BR|es|de|fr|ja|it|nl|ko|sv|pl|no|zh\\-TW|hu|cs|ru))?/activities/?(?:\\?|$)",
+        "^(?:/(?:en|pt\\-BR|es|de|fr|ja|it|nl|ko|sv|pl|no|zh\\-TW|hu|cs|ru))?/zones/?(?:\\?|$)",
+        "^(?:/(?:en|pt\\-BR|es|de|fr|ja|it|nl|ko|sv|pl|no|zh\\-TW|hu|cs|ru))?/result/?(?:\\?|$)",
+        "^(?:/(?:en|pt\\-BR|es|de|fr|ja|it|nl|ko|sv|pl|no|zh\\-TW|hu|cs|ru))?/race\\-calendar/?(?:\\?|$)",
+        "^(?:/(?:en|pt\\-BR|es|de|fr|ja|it|nl|ko|sv|pl|no|zh\\-TW|hu|cs|ru))?/guides/?(?:\\?|$)",
+        "^(?:/(?:en|pt\\-BR|es|de|fr|ja|it|nl|ko|sv|pl|no|zh\\-TW|hu|cs|ru))?/converter/?(?:\\?|$)",
+        "^(?:/(?:en|pt\\-BR|es|de|fr|ja|it|nl|ko|sv|pl|no|zh\\-TW|hu|cs|ru))?/registration/new/?(?:\\?|$)"
+      ],
+      "properties": {
+        "presentation": "replace_root",
+        "tab_root": true
+      }
+    }
+  ]
+}
