@@ -18,6 +18,7 @@ final class PathConfigurationTests: XCTestCase {
                 let properties = configuration.properties(for: locale + path)
                 XCTAssertTrue(properties.tabRoot, locale + path)
                 XCTAssertEqual(properties.presentation, .replaceRoot, locale + path)
+                XCTAssertFalse(properties.animated, locale + path)
             }
         }
     }
@@ -36,6 +37,7 @@ final class PathConfigurationTests: XCTestCase {
             XCTAssertEqual(properties.presentation, .default, path)
             XCTAssertEqual(properties.context, .default, path)
             XCTAssertTrue(properties.pullToRefreshEnabled, path)
+            XCTAssertTrue(properties.animated, path)
         }
     }
 }

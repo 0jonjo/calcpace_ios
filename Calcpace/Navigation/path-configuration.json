@@ -23,7 +23,8 @@
       ],
       "properties": {
         "presentation": "replace_root",
-        "tab_root": true
+        "tab_root": true,
+        "animated": false
       }
     }
   ]

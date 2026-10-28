@@ -17,6 +17,15 @@ final class WebViewController: HotwireWebViewController {
         navigationController?.setNavigationBarHidden(hidesNavigationBar, animated: animated)
     }
 
+    // An animated setViewControllers (a replace_root) calls viewWillAppear
+    // before the stack holds this screen, so it looked pushed there. Tab roots
+    // replace without animation; this catches whatever still gets it wrong.
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        guard let navigationController, navigationController.isNavigationBarHidden != hidesNavigationBar else { return }
+        navigationController.setNavigationBarHidden(hidesNavigationBar, animated: true)
+    }
+
     override func visitableDidRender() {
         super.visitableDidRender()
         navigationItem.title = ScreenTitle.short(visitableView.webView?.title)

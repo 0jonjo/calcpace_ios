@@ -45,6 +45,7 @@ final class LaunchTests: XCTestCase {
         back.tap()
         XCTAssertTrue(webView.buttons["Predict Marathon"].firstMatch.waitForExistence(timeout: 30), "back did not return to the front page")
         pause()
+        XCTAssertFalse(app.navigationBars.firstMatch.exists, "the bar stayed on the front page after Back")
 
         // A tab replaces the root: no bar, nothing to go back to.
         tap(webView.links["Convert"].firstMatch)
