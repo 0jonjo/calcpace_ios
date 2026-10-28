@@ -1,0 +1,78 @@
+name: Calcpace
+
+options:
+  bundleIdPrefix: app.calcpace
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+
+packages:
+  HotwireNative:
+    url: https://github.com/hotwired/hotwire-native-ios
+    exactVersion: 1.3.1
+
+settings:
+  base:
+    MARKETING_VERSION: 1.0.0
+    CURRENT_PROJECT_VERSION: 1
+    SWIFT_VERSION: "5.0"
+
+targets:
+  Calcpace:
+    type: application
+    platform: iOS
+    sources: [Calcpace]
+    dependencies:
+      - package: HotwireNative
+    info:
+      path: Support/Info.plist
+      properties:
+        CFBundleDisplayName: Calcpace
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        ITSAppUsesNonExemptEncryption: false
+        LSRequiresIPhoneOS: true
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+          UISceneConfigurations:
+            UIWindowSceneSessionRoleApplication:
+              - UISceneConfigurationName: Default Configuration
+                UISceneDelegateClassName: $(PRODUCT_MODULE_NAME).SceneDelegate
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.calcpace.ios
+        TARGETED_DEVICE_FAMILY: "1"
+
+  CalcpaceTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [CalcpaceTests]
+    dependencies:
+      - target: Calcpace
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: app.calcpace.ios.tests
+
+  CalcpaceUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [CalcpaceUITests]
+    dependencies:
+      - target: Calcpace
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: app.calcpace.ios.uitests
+
+schemes:
+  Calcpace:
+    build:
+      targets:
+        Calcpace: all
+    test:
+      targets:
+        - CalcpaceTests
+        - CalcpaceUITests

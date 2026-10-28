@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "26.3"
+
+      - name: Generate the Xcode project
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      # An iPhone on the runtime of the selected Xcode's simulator SDK, else
+      # the newest runtime below it. Device names change with every Xcode, so
+      # none is written down here.
+      - name: Boot a simulator
+        run: |
+          sdk=$(xcrun --sdk iphonesimulator --show-sdk-version)
+          echo "Simulator SDK $sdk"
+          udid=$(xcrun simctl list devices available -j | jq -r --arg sdk "$sdk" '
+            def version: capture("iOS-(?<a>[0-9]+)-(?<b>[0-9]+)") | [(.a | tonumber), (.b | tonumber)];
+            ($sdk | split(".") | map(tonumber) | .[0:2]) as $max
+            | [.devices | to_entries[]
+               | select(.key | test("iOS-[0-9]+-[0-9]+"))
+               | select((.key | version) <= $max)
+               | . as $runtime
+               | .value[] | select(.name | test("^iPhone"))
+               | {udid, v: ($runtime.key | version)}]
+            | sort_by(.v) | last | .udid // empty')
+          [ -n "$udid" ] || { echo "no iPhone simulator for iOS $sdk"; exit 1; }
+          xcrun simctl list devices | grep "$udid"
+          echo "SIMULATOR=$udid" >> "$GITHUB_ENV"
+          xcrun simctl boot "$udid"
+          xcrun simctl bootstatus "$udid" -b
+
+      - name: Build and test, recording the simulator
+        run: |
+          mkdir -p artifacts
+          xcrun simctl io "$SIMULATOR" recordVideo --codec=h264 --force artifacts/simulator.mp4 &
+          recorder=$!
+          sleep 2
+          set +e
+          xcodebuild test \
+            -project Calcpace.xcodeproj \
+            -scheme Calcpace \
+            -destination "id=$SIMULATOR" \
+            -resultBundlePath artifacts/Calcpace.xcresult
+          status=$?
+          # SIGINT lets simctl finish the file; a recorder that ignores it
+          # must not hold the job until the timeout.
+          kill -INT "$recorder" 2>/dev/null
+          for _ in $(seq 1 15); do kill -0 "$recorder" 2>/dev/null || break; sleep 1; done
+          kill -9 "$recorder" 2>/dev/null
+          wait "$recorder" 2>/dev/null
+          exit $status
+
+      - name: Export the test screenshots
+        if: always()
+        run: |
+          if [ -d artifacts/Calcpace.xcresult ]; then
+            mkdir -p artifacts/screenshots
+            xcrun xcresulttool export attachments \
+              --path artifacts/Calcpace.xcresult \
+              --output-path artifacts/screenshots
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: simulator
+          path: artifacts
+          retention-days: 14

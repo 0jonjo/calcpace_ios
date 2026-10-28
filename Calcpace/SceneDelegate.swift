@@ -1,0 +1,22 @@
+import HotwireNative
+import UIKit
+
+final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
+    var window: UIWindow?
+
+    // Made after AppDelegate has configured Hotwire (the user agent), since
+    // the Navigator builds its WebViews when it is created.
+    private lazy var navigator = Navigator(
+        configuration: .init(name: "main", startLocation: AppDelegate.rootURL)
+    )
+
+    func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
+        guard let windowScene = scene as? UIWindowScene else { return }
+
+        window = UIWindow(windowScene: windowScene)
+        window?.rootViewController = navigator.rootViewController
+        window?.makeKeyAndVisible()
+
+        navigator.start()
+    }
+}
