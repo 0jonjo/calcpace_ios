@@ -17,6 +17,18 @@ jobs:
   test:
     runs-on: macos-15
     timeout-minutes: 40
+    # A phone with a home button and a flat status bar, and one with the
+    # Dynamic Island, whose status bar is taller and covers the page's top
+    # when the app hides its navigation bar (the tab roots).
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - phone: se
+            names: "^iPhone SE"
+          - phone: island
+            names: "^iPhone [0-9]+( Pro)?$"
+    name: test (${{ matrix.phone }})
     steps:
       - uses: actions/checkout@v4
 
@@ -31,24 +43,24 @@ jobs:
           brew install xcodegen
           xcodegen generate
 
-      # An iPhone on the runtime of the selected Xcode's simulator SDK, else
-      # the newest runtime below it. Device names change with every Xcode, so
-      # none is written down here.
+      # An iPhone whose name matches the matrix's pattern, on the runtime of
+      # the selected Xcode's simulator SDK, else the newest runtime below it.
+      # Device names change with every Xcode, so none is written down here.
       - name: Boot a simulator
         run: |
           sdk=$(xcrun --sdk iphonesimulator --show-sdk-version)
           echo "Simulator SDK $sdk"
-          udid=$(xcrun simctl list devices available -j | jq -r --arg sdk "$sdk" '
+          udid=$(xcrun simctl list devices available -j | jq -r --arg sdk "$sdk" --arg names "${{ matrix.names }}" '
             def version: capture("iOS-(?<a>[0-9]+)-(?<b>[0-9]+)") | [(.a | tonumber), (.b | tonumber)];
             ($sdk | split(".") | map(tonumber) | .[0:2]) as $max
             | [.devices | to_entries[]
                | select(.key | test("iOS-[0-9]+-[0-9]+"))
                | select((.key | version) <= $max)
                | . as $runtime
-               | .value[] | select(.name | test("^iPhone"))
+               | .value[] | select(.name | test($names))
                | {udid, v: ($runtime.key | version)}]
             | sort_by(.v) | last | .udid // empty')
-          [ -n "$udid" ] || { echo "no iPhone simulator for iOS $sdk"; exit 1; }
+          [ -n "$udid" ] || { echo "no simulator matching ${{ matrix.names }} for iOS $sdk"; xcrun simctl list devices available; exit 1; }
           xcrun simctl list devices | grep "$udid"
           echo "SIMULATOR=$udid" >> "$GITHUB_ENV"
           xcrun simctl boot "$udid"
@@ -127,6 +139,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: simulator
+          name: simulator-${{ matrix.phone }}
           path: artifacts
           retention-days: 14
