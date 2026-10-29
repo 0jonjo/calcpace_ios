@@ -14,6 +14,9 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         guard let windowScene = scene as? UIWindowScene else { return }
 
         window = UIWindow(windowScene: windowScene)
+        // The site has no dark mode: a phone in dark mode would otherwise get
+        // black bars and sheets around white pages.
+        window?.overrideUserInterfaceStyle = .light
         window?.rootViewController = navigator.rootViewController
         window?.makeKeyAndVisible()
 

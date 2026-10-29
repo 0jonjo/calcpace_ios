@@ -36,12 +36,16 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
             .server(Self.rootURL.appendingPathComponent("configurations/ios_v1.json"))
         ])
 
-        // A solid bar, like the site's header, rather than a see-through one
-        // at the top of the page that blurs once it scrolls.
+        // A solid white bar, like the site's header, rather than a
+        // see-through one at the top of the page that blurs or darkens with
+        // what scrolls under it.
         let bar = UINavigationBarAppearance()
         bar.configureWithOpaqueBackground()
+        bar.backgroundColor = .white
+        bar.titleTextAttributes = [.foregroundColor: UIColor.black]
         UINavigationBar.appearance().standardAppearance = bar
         UINavigationBar.appearance().scrollEdgeAppearance = bar
+        UINavigationBar.appearance().compactAppearance = bar
 #if DEBUG
         Hotwire.config.debugLoggingEnabled = true
 #endif
