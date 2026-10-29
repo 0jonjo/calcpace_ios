@@ -10,7 +10,10 @@ import Foundation
 /// ever holds the last file. Not after this one: the receiving app may read
 /// it any time after the sheet closes.
 enum ShareFiles {
+    // A folder for each kind of file, so sharing one never deletes the
+    // other while the app it went to may still be reading it.
     static let images = "shared_images"
+    static let exports = "shared_exports"
 
     /// Blocking file IO: call off the main thread. `filename` must already be
     /// a plain name (no path); the callers only pass names they checked.
