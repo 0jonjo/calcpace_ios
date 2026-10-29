@@ -47,11 +47,15 @@ final class CsvExportRouteDecisionHandler: NSObject, RouteDecisionHandler, URLSe
 
         exporting = true
         let location = proposal.url
+        let webView = (navigator as? Navigator)?.activeWebView
         Task { @MainActor in
             defer { exporting = false }
-            let file = await download(location)
-            guard UIApplication.shared.applicationState == .active,
+            let file = await download(location, userAgent: await Self.userAgent(of: webView))
+            // Inactive (Control Center pulled down) still counts as here; the
+            // screen must be the one in the window, not a stack behind it.
+            guard UIApplication.shared.applicationState != .background,
                   let screen = navigator.activeNavigationController.visibleViewController,
+                  screen.viewIfLoaded?.window != nil,
                   screen.presentedViewController == nil
             else { return }
 
@@ -80,12 +84,21 @@ final class CsvExportRouteDecisionHandler: NSObject, RouteDecisionHandler, URLSe
         screen.present(controller, animated: true)
     }
 
+    // The WebView's own user agent, browser part included, as the Android
+    // app sends: a bot rule at the edge must see the same client the pages
+    // came from. Hotwire's part alone if the page can't say.
+    @MainActor
+    private static func userAgent(of webView: WKWebView?) async -> String {
+        let agent = try? await webView?.evaluateJavaScript("navigator.userAgent") as? String
+        return agent ?? Hotwire.config.userAgent
+    }
+
     // The file, or nil when there is no CSV to share.
     @MainActor
-    private func download(_ location: URL) async -> URL? {
+    private func download(_ location: URL, userAgent: String) async -> URL? {
         var request = URLRequest(url: location)
         request.setValue("text/csv", forHTTPHeaderField: "Accept")
-        request.setValue(Hotwire.config.userAgent, forHTTPHeaderField: "User-Agent")
+        request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
         let cookies = await WKWebsiteDataStore.default().httpCookieStore.allCookies()
             .filter { CsvExport.cookie(for: $0.domain, isSentTo: location.host) }
         HTTPCookie.requestHeaderFields(with: cookies).forEach { request.setValue($0.value, forHTTPHeaderField: $0.key) }
@@ -107,6 +120,9 @@ final class CsvExportRouteDecisionHandler: NSObject, RouteDecisionHandler, URLSe
             // Reads at most one byte past the limit: a bigger file is refused
             // without being read whole.
             var data = Data()
+            if response.expectedContentLength > 0 {
+                data.reserveCapacity(min(Int(response.expectedContentLength), CsvExport.maxBytes + 1))
+            }
             for try await byte in bytes {
                 data.append(byte)
                 if data.count > CsvExport.maxBytes { return nil }
