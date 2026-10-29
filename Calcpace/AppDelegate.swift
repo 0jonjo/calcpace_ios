@@ -32,7 +32,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         let bar = UINavigationBarAppearance()
         bar.configureWithOpaqueBackground()
         bar.backgroundColor = .white
-        bar.titleTextAttributes = [.foregroundColor: UIColor.label]
+        bar.titleTextAttributes = [.foregroundColor: UIColor.black]
         UINavigationBar.appearance().standardAppearance = bar
         UINavigationBar.appearance().scrollEdgeAppearance = bar
         UINavigationBar.appearance().compactAppearance = bar

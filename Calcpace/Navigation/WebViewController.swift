@@ -12,6 +12,15 @@ import UIKit
 /// one were ever pushed, it would show the bar rather than a screen with no
 /// way back.
 final class WebViewController: HotwireWebViewController {
+    // The page starts below the bar instead of scrolling under it: on iOS 26
+    // a bar over the page took its colours from it and settled dark, with a
+    // white title, over the site's white pages. Where the bar is hidden the
+    // page still reaches the top, and the site clears the status bar.
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        edgesForExtendedLayout = []
+    }
+
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         navigationController?.setNavigationBarHidden(hidesNavigationBar, animated: animated)
