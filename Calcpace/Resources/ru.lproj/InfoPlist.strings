@@ -1,2 +1,5 @@
 /* The Apple Health permission sheet: why the app reads workouts (calcpace_web apple_health.card.body, its first and last sentences). */
 "NSHealthShareUsageDescription" = "Calcpace импортирует пробежки и прогулки, которые ваши Apple Watch и беговые приложения (Strava, Nike, Garmin, adidas) сохраняют в приложении «Здоровье». Мы читаем только время, расстояние, длительность, набор высоты и пульс этих тренировок.";
+
+/* Required by App Store validation next to the read text, although the app only reads (HealthReader). */
+"NSHealthUpdateUsageDescription" = "Calcpace ничего не записывает в приложение «Здоровье».";

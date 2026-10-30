@@ -76,6 +76,19 @@ jobs:
             -destination "id=$SIMULATOR" \
             -derivedDataPath build
 
+      # The tests run a debug build; this keeps the release one compiling
+      # (what is behind #if DEBUG: the UI tests' Apple Health harness).
+      - name: Build for release
+        if: matrix.phone == 'se'
+        run: |
+          xcodebuild build \
+            -project Calcpace.xcodeproj \
+            -scheme Calcpace \
+            -configuration Release \
+            -destination "id=$SIMULATOR" \
+            -derivedDataPath build-release \
+            CODE_SIGNING_ALLOWED=NO
+
       # simulator.mp4 is the whole run, installs included; app.mp4 is cut to
       # the UI tests, by the clock: when the recorder said it started, and
       # when xcodebuild printed the UI suite's start and end.

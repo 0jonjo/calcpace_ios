@@ -44,6 +44,10 @@ targets:
         UILaunchScreen: {}
         # Translated in each InfoPlist.strings (calcpace_web's
         # apple_health.card.body).
+        # App Store validation wants it with any HealthKit app (ITMS-90683),
+        # one that only reads included. Only the UI tests' harness, in debug
+        # builds, ever asks to write.
+        NSHealthUpdateUsageDescription: "Calcpace doesn't write anything to the Health app."
         NSHealthShareUsageDescription: "Calcpace imports the runs and walks your Apple Watch and running apps (Strava, Nike, Garmin, adidas) save to the Health app. We read only the time, distance, duration, climb and heart rate of those workouts."
         # The site is light only: a dark clock everywhere, whatever iOS 26's
         # bars make of the page under them.
@@ -60,13 +64,6 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.calcpace.ios
         TARGETED_DEVICE_FAMILY: "1"
-      configs:
-        # The UI tests write workouts to the simulator's Apple Health
-        # (HealthHarness). A release build never asks to write: the key is
-        # merged into the Info.plist of debug builds only.
-        Debug:
-          GENERATE_INFOPLIST_FILE: YES
-          INFOPLIST_KEY_NSHealthUpdateUsageDescription: "Debug builds only: the UI tests write made-up workouts."
 
   CalcpaceTests:
     type: bundle.unit-test

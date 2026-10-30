@@ -182,6 +182,8 @@ final class HealthHarnessViewController: UIViewController {
         do {
             show("asking")
             try await store.requestAuthorization(toShare: HealthHarness.writeTypes, read: HealthReader.readTypes)
+            // A simulator the test ran on before: its workouts go first.
+            _ = try? await store.deleteObjects(of: HealthReader.workoutType, predicate: HKQuery.predicateForObjects(from: HKSource.default()))
             show("writing")
             var workouts: [HKWorkout] = []
             for seed in HealthHarness.seeds {

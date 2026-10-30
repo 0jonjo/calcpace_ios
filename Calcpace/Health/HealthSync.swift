@@ -1,5 +1,6 @@
 import Foundation
 import HealthKit
+import UIKit
 
 /// Sends what Apple Health holds to the site, for the account whose token
 /// the page handed over (AppleHealthComponent "link"):
@@ -35,10 +36,13 @@ actor HealthSync {
         self.uploader = uploader
     }
 
-    /// At launch (AppDelegate), so HealthKit has an observer to wake.
-    func resume() {
+    /// At launch (AppDelegate), so HealthKit has an observer to wake. Asks
+    /// for background delivery again too: HealthKit stops it for an app that
+    /// failed to answer a few wake-ups, and the call is idempotent.
+    func resume() async {
         guard links.token != nil else { return }
         observe()
+        try? await reader.store.enableBackgroundDelivery(for: HealthReader.workoutType, frequency: .hourly)
     }
 
     /// The page's "link", after a granted "enable".
@@ -109,6 +113,8 @@ actor HealthSync {
 
         var afters: [SyncPlan.After] = []
         for upload in HealthPayload.batches(sessions: sessions, deleted: changes.deleted, initial: anchor == nil) {
+            // Forgotten meanwhile (the page, a 401): nothing more leaves the phone.
+            guard links.token == token else { return .unlinked }
             let after = SyncPlan.after(await uploader.send(upload, token: token))
             afters.append(after)
             if after != .advance { break }
@@ -126,18 +132,46 @@ actor HealthSync {
     private func observe() {
         guard observer == nil else { return }
         // HealthKit waits for completion() before it counts the wake-up as
-        // handled; it also fires once as soon as the query starts.
+        // handled, and stops waking an app that misses it a few times; it
+        // also fires once as soon as the query starts. A background task
+        // keeps the app up for the sync, and its expiry still answers.
         let query = HKObserverQuery(sampleType: HealthReader.workoutType, predicate: nil) { [weak self] _, completion, error in
             guard error == nil, let self else {
                 completion()
                 return
             }
-            Task {
+            Task { @MainActor in
+                let wake = BackgroundWake(completion)
                 await self.run()
-                completion()
+                wake.finish()
             }
         }
         observer = query
         reader.store.execute(query)
+    }
+}
+
+/// One wake-up by HealthKit: a background task keeps the app up for the
+/// sync, and HealthKit's completion handler is called once, at the sync's
+/// end or when the background time runs out, whichever comes first.
+@MainActor
+private final class BackgroundWake {
+    private var completion: (() -> Void)?
+    private var task = UIBackgroundTaskIdentifier.invalid
+
+    init(_ completion: @escaping () -> Void) {
+        self.completion = completion
+        task = UIApplication.shared.beginBackgroundTask(withName: "apple-health-sync") { [weak self] in
+            MainActor.assumeIsolated { self?.finish() }
+        }
+    }
+
+    func finish() {
+        completion?()
+        completion = nil
+        if task != .invalid {
+            UIApplication.shared.endBackgroundTask(task)
+            task = .invalid
+        }
     }
 }

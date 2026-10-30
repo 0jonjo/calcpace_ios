@@ -43,7 +43,7 @@ enum HealthPayload {
     static let maxSessions = 50
     static let maxDeleted = 200
 
-    private static let linkToken = try! NSRegularExpression(pattern: "^[A-Za-z0-9_-]{43}$")
+    private static let linkToken = try! NSRegularExpression(pattern: "^[A-Za-z0-9_-]{43}\\z")
 
     /// At most `maxSessions` sessions and `maxDeleted` ids per request.
     /// Nothing to say, no request: the anchor still moves on.

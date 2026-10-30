@@ -54,6 +54,7 @@ final class HealthReader {
 
     func facts(_ workout: HKWorkout) async -> WorkoutFacts {
         let heart = await heartRate(during: workout)
+        let distance = await distance(of: workout)
         let metadata = workout.metadata ?? [:]
         return WorkoutFacts(
             id: workout.uuid,
@@ -62,7 +63,7 @@ final class HealthReader {
             start: workout.startDate,
             end: workout.endDate,
             duration: workout.duration,
-            distanceM: distance(of: workout),
+            distanceM: distance,
             elevationGainM: (metadata[HKMetadataKeyElevationAscended] as? HKQuantity)?.doubleValue(for: .meter()),
             timeZone: metadata[HKMetadataKeyTimeZone] as? String,
             origin: workout.sourceRevision.source.bundleIdentifier,
@@ -82,11 +83,33 @@ final class HealthReader {
         }
     }
 
-    private func distance(of workout: HKWorkout) -> Double? {
+    /// The workout's own sum; else the distance samples its app tied to it
+    /// after saving it; else its app's samples over its time. A workout
+    /// still without distance is left out (WorkoutMapper) and not read again.
+    private func distance(of workout: HKWorkout) async -> Double? {
         if let sum = workout.statistics(for: Self.distanceType)?.sumQuantity() {
             return sum.doubleValue(for: .meter())
         }
-        return workout.totalDistance?.doubleValue(for: .meter())
+        if let total = workout.totalDistance?.doubleValue(for: .meter()), total > 0 {
+            return total
+        }
+        if let tied = await sum(of: Self.distanceType, matching: HKQuery.predicateForObjects(from: workout)), tied > 0 {
+            return tied
+        }
+        let window = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            HKQuery.predicateForSamples(withStart: workout.startDate, end: workout.endDate, options: [.strictStartDate, .strictEndDate]),
+            HKQuery.predicateForObjects(from: workout.sourceRevision.source)
+        ])
+        return await sum(of: Self.distanceType, matching: window)
+    }
+
+    private func sum(of type: HKQuantityType, matching predicate: NSPredicate) async -> Double? {
+        await withCheckedContinuation { continuation in
+            let query = HKStatisticsQuery(quantityType: type, quantitySamplePredicate: predicate, options: .cumulativeSum) { _, stats, _ in
+                continuation.resume(returning: stats?.sumQuantity()?.doubleValue(for: .meter()))
+            }
+            store.execute(query)
+        }
     }
 
     /// The workout's own figures when its app recorded them with it (the
