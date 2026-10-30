@@ -1,0 +1,2 @@
+/* The Apple Health permission sheet: why the app reads workouts (calcpace_web apple_health.card.body, its first and last sentences). */
+"NSHealthShareUsageDescription" = "Calcpace は、Apple Watch やランニングアプリ（Strava、Nike、Garmin、adidas）がヘルスケアAppに保存したランとウォーキングを取り込みます。読み取るのは、そのワークアウトの時刻、距離、時間、獲得標高、心拍数だけです。";

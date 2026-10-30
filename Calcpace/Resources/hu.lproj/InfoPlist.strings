@@ -1,0 +1,2 @@
+/* The Apple Health permission sheet: why the app reads workouts (calcpace_web apple_health.card.body, its first and last sentences). */
+"NSHealthShareUsageDescription" = "A Calcpace azokat a futásokat és sétákat importálja, amelyeket az Apple Watch és a futóalkalmazásaid (Strava, Nike, Garmin, adidas) az Egészség appba mentenek. Ezekből az edzésekből csak az időpontot, a távot, az időtartamot, az emelkedést és a pulzust olvassuk be.";

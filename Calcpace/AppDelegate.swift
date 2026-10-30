@@ -14,9 +14,20 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         Hotwire.config.defaultViewController = { url in WebViewController(url: url) }
 
         // Native pieces the site can drive: "share-image" hands a run's share
-        // card to the share sheet. The user agent lists them, so the site only
-        // talks to components this build has.
-        Hotwire.registerBridgeComponents([ShareImageComponent.self])
+        // card to the share sheet, "apple-health" links Apple Health. The user
+        // agent lists them, so the site only talks to components this build has.
+        Hotwire.registerBridgeComponents([ShareImageComponent.self, AppleHealthComponent.self])
+
+        // HealthKit wakes the app for new workouts only if an observer is
+        // set up here, at launch.
+        HealthLinkStore.shared.forgetPreviousInstall()
+        Task {
+#if DEBUG
+            // The UI tests' Apple Health run links and syncs on its own.
+            if HealthHarness.isOn { return }
+#endif
+            await HealthSync.shared.resume()
+        }
 
         // Order matters: the first handler that matches decides. The runs
         // list's CSV export must be caught before in-app navigation claims

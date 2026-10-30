@@ -1,0 +1,2 @@
+/* The Apple Health permission sheet: why the app reads workouts (calcpace_web apple_health.card.body, its first and last sentences). */
+"NSHealthShareUsageDescription" = "O Calcpace importa as corridas e caminhadas que o seu Apple Watch e os seus apps de corrida (Strava, Nike, Garmin, adidas) gravam no app Saúde. Lemos só horário, distância, duração, subida e frequência cardíaca desses treinos.";
