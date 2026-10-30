@@ -19,7 +19,7 @@ final class HealthTests: XCTestCase {
         let status = app.staticTexts["harness.status"]
         XCTAssertTrue(status.waitForExistence(timeout: 10), "no harness")
         let finished = NSPredicate(format: "label BEGINSWITH 'done' OR label BEGINSWITH 'error'")
-        wait(for: [XCTNSPredicateExpectation(predicate: finished, object: status)], timeout: 120)
+        wait(for: [XCTNSPredicateExpectation(predicate: finished, object: status)], timeout: 180)
         attachScreenshot(of: app, named: "health-harness")
 
         let words = status.label.split(separator: " ").map(String.init)
@@ -41,7 +41,7 @@ final class HealthTests: XCTestCase {
     private func allowHealthAccess(in app: XCUIApplication) {
         let turnOnAll = app.descendants(matching: .any)
             .matching(NSPredicate(format: "label BEGINSWITH 'Turn On All'")).firstMatch
-        guard turnOnAll.waitForExistence(timeout: 30) else {
+        guard turnOnAll.waitForExistence(timeout: 120) else {
             attachScreenshot(of: app, named: "no-health-sheet")
             return
         }

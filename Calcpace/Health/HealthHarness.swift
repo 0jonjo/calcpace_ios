@@ -181,7 +181,16 @@ final class HealthHarnessViewController: UIViewController {
 
         do {
             show("asking")
-            try await store.requestAuthorization(toShare: HealthHarness.writeTypes, read: HealthReader.readTypes)
+            // A freshly booted simulator's HealthKit may time the sheet out
+            // before showing it: asked again, a few times.
+            for attempt in 1 ... 3 {
+                do {
+                    try await store.requestAuthorization(toShare: HealthHarness.writeTypes, read: HealthReader.readTypes)
+                    break
+                } catch where attempt < 3 {
+                    show("asking again")
+                }
+            }
             // A simulator the test ran on before: its workouts go first.
             _ = try? await store.deleteObjects(of: HealthReader.workoutType, predicate: HKQuery.predicateForObjects(from: HKSource.default()))
             show("writing")
