@@ -246,8 +246,12 @@ final class HealthHarnessViewController: UIViewController {
             // run's distance. The route's observer may sync first: whatever
             // reached the server since counts.
             show("saving later")
+            let waiting = HealthLinkStore.shared.pending.values.map(\.reason.rawValue).sorted().joined(separator: "+")
             let before = FakeHealthServer.sessions.count
             try await HealthHarness.addDistance(to: workouts[HealthHarness.lateDistance], in: store)
+            let reread = try await HealthReader().workouts(ids: [workouts[HealthHarness.lateDistance].uuid])
+            var rereadDistance = -2.0
+            if let workout = reread.first { rereadDistance = await HealthReader().facts(workout).distanceM ?? -1 }
             try await HealthHarness.addRoute(to: workouts[HealthHarness.lateRoute], in: store)
             _ = await sync.run()
             let later = FakeHealthServer.sessions.dropFirst(before)
@@ -288,6 +292,8 @@ final class HealthHarnessViewController: UIViewController {
                 "lateroute=\(lateRoute)",
                 "latedistance=\(Int(lateDistance))",
                 "later=\(laterIds.count)",
+                "waiting=\(waiting)",
+                "reread=\(Int(rereadDistance))",
                 "quiet=\(quiet)",
                 "deleted=\(deletedSent)",
                 "unlinked=\(unlinked)",
