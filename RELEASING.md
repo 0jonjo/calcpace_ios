@@ -6,13 +6,14 @@ The whole day-of-account sequence (APNs key, Sign in with Apple key, email domai
 
 ## Once, when the account exists
 
-The app icon (A5) has to be in the project before the first upload: App Store Connect rejects a build without one.
+The app icon (A5) has to be in the project before the first upload: App Store Connect rejects a build without one, so `beta` stops in seconds when there is no `AppIcon.appiconset`.
 
-1. **App ID.** In Certificates, Identifiers & Profiles, register `app.calcpace.ios` with **HealthKit**, **Push Notifications** and **Sign in with Apple** turned on. Do it before step 6: the entitlements are in `project.yml`, and a profile made without a capability fails to sign.
-2. **App record.** In App Store Connect, create the app "Calcpace" with that bundle id.
-3. **API key.** App Store Connect → Users and Access → Integrations → App Store Connect API: a key with the **Admin** role (only Admin can create a distribution certificate). Keep the `.p8`; Apple lets you download it once.
-4. **Certificates repository.** Create the private repository `0jonjo/calcpace_ios_certs` with a README on `main`. Make a fine-grained token with access to that repository only, Contents read and write.
-5. **Secrets.** In this repository (`gh secret set NAME -R 0jonjo/calcpace_ios`):
+1. **Agreements.** The Account Holder accepts the current Program License Agreement (developer.apple.com → Account, and App Store Connect → Business). Until then, and again whenever Apple publishes a new version, every API call fails with 403 `REQUIRED_AGREEMENTS_MISSING_OR_EXPIRED`.
+2. **App ID.** In Certificates, Identifiers & Profiles, register `app.calcpace.ios` with **HealthKit**, **Push Notifications** and **Sign in with Apple** turned on. Do it before step 7: the entitlements are in `project.yml`, and a profile made without a capability fails to sign.
+3. **App record.** In App Store Connect, create the app "Calcpace" with that bundle id.
+4. **API key.** The Account Holder first requests API access: App Store Connect → Users and Access → Integrations → App Store Connect API → Request Access. Then a key with the **Admin** role, for the `certs` run only (only Admin can create a distribution certificate). Keep the `.p8`; Apple lets you download it once.
+5. **Certificates repository.** Create the private repository `0jonjo/calcpace_ios_certs` with a README on `main`. Make a fine-grained token with access to that repository only, Contents read and write.
+6. **Secrets.** In this repository (`gh secret set NAME -R 0jonjo/calcpace_ios`):
 
    | Secret | Value |
    |---|---|
@@ -24,11 +25,14 @@ The app icon (A5) has to be in the project before the first upload: App Store Co
    | `MATCH_GIT_BASIC_AUTHORIZATION` | `printf '0jonjo:<token>' \| base64 -w0` |
    | `MATCH_PASSWORD` | A new random password (`openssl rand -base64 32`), kept in the password manager: it decrypts the certificates |
 
-6. **Certificate and profile.** Actions → TestFlight → Run workflow → lane `certs`. match creates the Apple Distribution certificate and the App Store profile and pushes them, encrypted, to `calcpace_ios_certs`. Every other run only reads them. Run it again only when the certificate expires (a year) or a capability changes.
+7. **Certificate and profile.** Actions → TestFlight → Run workflow → lane `certs`. match creates the Apple Distribution certificate and the App Store profile and pushes them, encrypted, to `calcpace_ios_certs`; the lane then clones that repository and fails if they are not there. Confirm the match commit in `calcpace_ios_certs` (`certs/distribution/`, `profiles/appstore/`) before the first tag. Every other run only reads them.
+8. **Lower the key.** Make a second key with the **App Manager** role, put its id and `.p8` in `ASC_KEY_ID` and `ASC_KEY_P8_BASE64` (the issuer id stays), and revoke the Admin key. `beta` needs no more than that.
+
+**Once a year**, when the certificate expires (the profile expires with it), or after a capability changes: an Admin key in the secrets again, run `certs`, then back to App Manager. `renew_expired_certs` revokes the expired certificate and makes a new one and its profile.
 
 ## Each release
 
-1. In a pull request: `MARKETING_VERSION` in `project.yml` if the version changes, and the "What to Test" text in `fastlane/testflight_changelog.txt` (an empty file uploads without one).
+1. In a pull request: raise `MARKETING_VERSION` in `project.yml` when the version changes, and always after an App Store release (TestFlight rejects uploads for a version Apple has approved). Put the "What to Test" text in `fastlane/testflight_changelog.txt` (an empty file uploads without one).
 2. After the merge, tag `main` with the same version:
 
    ```sh
