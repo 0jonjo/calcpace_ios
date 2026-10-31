@@ -14,8 +14,7 @@ type("appstore")
 app_identifier(["app.calcpace.ios"])
 team_id(ENV["APPLE_TEAM_ID"])
 
-# Read only: CI installs what is in the repository and never creates or
-# revokes anything. The one run that creates the certificate and profile
-# (the TestFlight workflow, started by hand with "certs") sets
-# CERTS_CREATE=true. Not MATCH_READONLY: setup_ci overwrites that one.
-readonly(ENV["CERTS_CREATE"] != "true")
+# Read only: CI, and anyone running match by hand, installs what is in the
+# repository and never creates or revokes anything. Only the certs lane
+# writes, when the workflow's "certs" choice sets CERTS_CREATE=true.
+readonly(true)
