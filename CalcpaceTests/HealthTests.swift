@@ -8,13 +8,17 @@ final class WorkoutMapperTests: XCTestCase {
     private func facts(
         kind: WorkoutFacts.Kind = .running, indoor: Bool = false, minutes: Double = 25, duration: TimeInterval? = nil,
         distance: Double? = 5000, elevation: Double? = nil, timeZone: String? = nil, device: String? = nil,
-        hrAvg: Double? = nil, hrMax: Double? = nil
+        hrAvg: Double? = nil, hrMax: Double? = nil, route: [HealthRoute.Point]? = nil
     ) -> WorkoutFacts {
         WorkoutFacts(
             id: uuid, kind: kind, indoor: indoor, start: start, end: start.addingTimeInterval(minutes * 60),
             duration: duration ?? minutes * 60, distanceM: distance, elevationGainM: elevation, timeZone: timeZone,
-            origin: "com.strava.stravaride", device: device, hrAvg: hrAvg, hrMax: hrMax
+            origin: "com.strava.stravaride", device: device, hrAvg: hrAvg, hrMax: hrMax, route: route
         )
+    }
+
+    private func points(_ seconds: Int) -> [HealthRoute.Point] {
+        (0 ... seconds).map { HealthRoute.Point(time: start.addingTimeInterval(Double($0)), lat: -5.8, lon: -35.2) }
     }
 
     func testARunInTheServersFormat() throws {
@@ -32,6 +36,42 @@ final class WorkoutMapperTests: XCTestCase {
         XCTAssertEqual(session.hrMax, 171)
         XCTAssertNil(session.zoneOffset)
         XCTAssertNil(session.elevationGainM)
+        XCTAssertNil(session.route)
+    }
+
+    func testTheRouteThinned() throws {
+        let session = try XCTUnwrap(WorkoutMapper.wire(facts(route: points(60))))
+        let route = try XCTUnwrap(session.route)
+        XCTAssertEqual(route.count, 13)
+        XCTAssertEqual(route.first, WirePoint(time: 1_793_000_000, lat: -5.8, lon: -35.2))
+        XCTAssertEqual(route.last?.time, 1_793_000_060)
+    }
+
+    func testNoRouteIndoorsOrOfASinglePoint() {
+        XCTAssertNil(WorkoutMapper.wire(facts(indoor: true, route: points(60)))?.route)
+        XCTAssertNil(WorkoutMapper.wire(facts(route: points(0)))?.route)
+        XCTAssertNil(WorkoutMapper.wire(facts(route: []))?.route)
+    }
+
+    func testWhatASyncDoesWithEachWorkout() throws {
+        guard case let .ready(session, awaitsRoute) = WorkoutMapper.judge(facts(route: points(60))) else { return XCTFail() }
+        XCTAssertNotNil(session.route)
+        XCTAssertFalse(awaitsRoute)
+
+        // Outdoors without a route: sent, and read again for it.
+        XCTAssertEqual(WorkoutMapper.judge(facts()), .ready(try XCTUnwrap(WorkoutMapper.wire(facts())), awaitsRoute: true))
+        XCTAssertEqual(WorkoutMapper.judge(facts(kind: .walking)), .ready(try XCTUnwrap(WorkoutMapper.wire(facts(kind: .walking))), awaitsRoute: true))
+        // A route of one point will not do either.
+        guard case .ready(_, true) = WorkoutMapper.judge(facts(route: points(0))) else { return XCTFail() }
+        // Indoors: no route to wait for.
+        guard case .ready(_, false) = WorkoutMapper.judge(facts(indoor: true)) else { return XCTFail() }
+
+        XCTAssertEqual(WorkoutMapper.judge(facts(distance: nil)), .awaitsDistance)
+        XCTAssertEqual(WorkoutMapper.judge(facts(distance: 0)), .awaitsDistance)
+        XCTAssertEqual(WorkoutMapper.judge(facts(kind: .other)), .left)
+        XCTAssertEqual(WorkoutMapper.judge(facts(kind: .other, distance: nil)), .left)
+        XCTAssertEqual(WorkoutMapper.judge(facts(minutes: 0, distance: nil)), .left)
+        XCTAssertEqual(WorkoutMapper.judge(facts(duration: 0.2)), .left)
     }
 
     func testTreadmillAndWalk() {
@@ -70,10 +110,97 @@ final class WorkoutMapperTests: XCTestCase {
     }
 }
 
+final class HealthRouteTests: XCTestCase {
+    private let start = Date(timeIntervalSince1970: 1_793_000_000)
+
+    private func point(_ second: Double, lat: Double = -5.8, lon: Double = -35.2) -> HealthRoute.Point {
+        HealthRoute.Point(time: start.addingTimeInterval(second), lat: lat, lon: lon)
+    }
+
+    func testAPointEveryFiveSecondsTheFirstAndLastAlways() {
+        let thinned = HealthRoute.thin((0 ... 12).map { point(Double($0)) })
+        XCTAssertEqual(thinned.map { $0.time.timeIntervalSince(start) }, [0, 5, 10, 12])
+    }
+
+    func testOutOfOrderAndOffTheMap() {
+        let thinned = HealthRoute.thin([point(10), point(0), point(5, lat: 91), point(6, lon: -181), point(20)])
+        XCTAssertEqual(thinned.map { $0.time.timeIntervalSince(start) }, [0, 10, 20])
+    }
+
+    func testTooLongOrTooShortGoesNotAtAll() {
+        XCTAssertEqual(HealthRoute.thin([]), [])
+        XCTAssertEqual(HealthRoute.thin([point(0)]), [])
+        XCTAssertEqual(HealthRoute.thin([point(0), point(1)]).count, 2, "the last always")
+        let long = (0 ... HealthRoute.maxPoints).map { point(Double($0) * 5) }
+        XCTAssertEqual(HealthRoute.thin(long), [])
+        XCTAssertEqual(HealthRoute.thin(Array(long.dropLast())).count, HealthRoute.maxPoints)
+    }
+
+    func testTheJsonTheServerReads() throws {
+        var session = WireSession(id: "a", type: "running", start: "s", end: "e", origin: "o", distanceM: 1, durationS: 1)
+        session.route = HealthRoute.wire([point(0.9, lat: -5.81, lon: -35.2), point(5)])
+        let data = try JSONEncoder().encode(session)
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let route = try XCTUnwrap(json["route"] as? [[Any]])
+        XCTAssertEqual(route.count, 2)
+        XCTAssertEqual(route[0][0] as? Int, 1_793_000_000, "whole seconds")
+        XCTAssertEqual(route[0][1] as? Double, -5.81)
+        XCTAssertEqual(route[0][2] as? Double, -35.2)
+        XCTAssertEqual(route[1][0] as? Int, 1_793_000_005)
+    }
+}
+
+final class PendingWorkoutsTests: XCTestCase {
+    func testKeepsTheFirstSightingWhateverTheReason() {
+        var list = PendingWorkouts.mark([:], "a", .distance, now: 100)
+        list = PendingWorkouts.mark(list, "a", .route, now: 200)
+        XCTAssertEqual(list["a"], PendingWorkouts.Entry(since: 100, reason: .route))
+    }
+
+    func testRemoveAndExpire() {
+        var list = PendingWorkouts.mark([:], "a", .route, now: 0)
+        list = PendingWorkouts.mark(list, "b", .distance, now: 10)
+        list = PendingWorkouts.mark(list, "c", .distance, now: 20)
+        XCTAssertEqual(Set(PendingWorkouts.remove(list, ["b", "x"]).keys), ["a", "c"])
+        XCTAssertEqual(Set(PendingWorkouts.expire(list, now: PendingWorkouts.maxAge + 10).keys), ["b", "c"])
+    }
+
+    func testKeepsTheNewest() {
+        var list: PendingWorkouts.List = [:]
+        for index in 0 ... PendingWorkouts.maxEntries {
+            list = PendingWorkouts.mark(list, "w\(index)", .route, now: index)
+        }
+        XCTAssertEqual(list.count, PendingWorkouts.maxEntries)
+        XCTAssertNil(list["w0"])
+        XCTAssertNotNil(list["w\(PendingWorkouts.maxEntries)"])
+    }
+
+    func testRoundTripAndGarbage() {
+        let list = PendingWorkouts.mark([:], "a", .route, now: 5)
+        XCTAssertEqual(PendingWorkouts.decode(PendingWorkouts.encode(list)), list)
+        XCTAssertEqual(PendingWorkouts.decode(nil), [:])
+        XCTAssertEqual(PendingWorkouts.decode(Data("nope".utf8)), [:])
+        XCTAssertEqual(PendingWorkouts.decode(Data(#"{"a":{"since":1,"reason":"steps"}}"#.utf8)), [:])
+    }
+}
+
 final class HealthPayloadTests: XCTestCase {
-    private func session(_ id: String, distance: Double = 1000) -> WireSession {
-        WireSession(id: id, type: "running", start: "2026-10-30T10:00:00Z", end: "2026-10-30T10:10:00Z",
-                    origin: "app.calcpace.ios", distanceM: distance, durationS: 600)
+    private func session(_ id: String, distance: Double = 1000, points: Int = 0) -> WireSession {
+        var session = WireSession(id: id, type: "running", start: "2026-10-30T10:00:00Z", end: "2026-10-30T10:10:00Z",
+                                  origin: "app.calcpace.ios", distanceM: distance, durationS: 600)
+        if points > 0 {
+            session.route = (0 ..< points).map { WirePoint(time: 1_793_000_000 + $0, lat: 0, lon: 0) }
+        }
+        return session
+    }
+
+    func testRoutesWithinTheServersBudget() {
+        let max = HealthRoute.maxPoints
+        let sessions = [session("a", points: max), session("b", points: max), session("c", points: 1), session("d")]
+        let batches = HealthPayload.batches(sessions: sessions, deleted: ["x"], initial: false)
+        XCTAssertEqual(batches.map { $0.sessions.map(\.id) }, [["a", "b"], ["c", "d"]])
+        XCTAssertEqual(batches.map(\.deleted), [["x"], []])
+        XCTAssertTrue(batches.allSatisfy { $0.sessions.reduce(0) { $0 + ($1.route?.count ?? 0) } <= HealthRoute.maxPointsPerUpload })
     }
 
     func testTheJsonTheServerReads() throws {
@@ -255,6 +382,20 @@ final class HealthLinkStoreTests: XCTestCase {
         XCTAssertEqual(store.token, "second")
         store.clear()
         XCTAssertNil(store.token)
+    }
+
+    func testThePendingListGoesWithTheAnchorOfItsLink() {
+        let list = PendingWorkouts.mark([:], "a", .route, now: 1)
+        store.link(token: "first")
+        store.save(anchor: nil, pending: list, for: "other")
+        XCTAssertEqual(store.pending, [:], "not this link's")
+        store.save(anchor: nil, pending: list, for: "first")
+        XCTAssertEqual(store.pending, list)
+        store.link(token: "second")
+        XCTAssertEqual(store.pending, [:], "a new link starts afresh")
+        store.save(anchor: nil, pending: list, for: "second")
+        store.clear()
+        XCTAssertEqual(store.pending, [:])
     }
 
     func testAFreshInstallStartsUnlinked() {

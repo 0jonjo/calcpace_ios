@@ -1,4 +1,5 @@
 #if DEBUG
+import CoreLocation
 import HealthKit
 import UIKit
 
@@ -15,7 +16,7 @@ enum HealthHarness {
 
     static let token = String(repeating: "T", count: 43)
 
-    static let writeTypes: Set<HKSampleType> = [HealthReader.workoutType, HealthReader.distanceType, HealthReader.heartRateType]
+    static let writeTypes: Set<HKSampleType> = [HealthReader.workoutType, HealthReader.distanceType, HealthReader.heartRateType, HealthReader.routeType]
 
     struct Seed {
         let activity: HKWorkoutActivityType
@@ -24,16 +25,22 @@ enum HealthHarness {
         let hoursAgo: Double
         let minutes: Double
         let heartRates: [Double]
+        var route = false
     }
 
-    /// A run with its heart rate, a treadmill run, a walk, and a ride that
-    /// is no run: three sessions to send.
+    /// A run with its heart rate and route, a treadmill run, a walk whose
+    /// route comes later, a ride that is no run (three sessions to send),
+    /// and a run whose distance comes later.
     static let seeds = [
-        Seed(activity: .running, indoor: false, meters: 5000, hoursAgo: 50, minutes: 25, heartRates: [150, 160]),
+        Seed(activity: .running, indoor: false, meters: 5000, hoursAgo: 50, minutes: 25, heartRates: [150, 160], route: true),
         Seed(activity: .running, indoor: true, meters: 3000, hoursAgo: 30, minutes: 18, heartRates: []),
         Seed(activity: .walking, indoor: false, meters: 2000, hoursAgo: 20, minutes: 24, heartRates: []),
-        Seed(activity: .cycling, indoor: false, meters: nil, hoursAgo: 10, minutes: 40, heartRates: [])
+        Seed(activity: .cycling, indoor: false, meters: nil, hoursAgo: 10, minutes: 40, heartRates: []),
+        Seed(activity: .running, indoor: false, meters: nil, hoursAgo: 5, minutes: 30, heartRates: [])
     ]
+    static let lateRoute = 2
+    static let lateDistance = 4
+    static let lateMeters = 4000.0
 
     static func write(_ seed: Seed, to store: HKHealthStore) async throws -> HKWorkout {
         let end = Date().addingTimeInterval(-seed.hoursAgo * 3600)
@@ -61,7 +68,30 @@ enum HealthHarness {
         ])
         try await builder.endCollection(at: end)
         guard let workout = try await builder.finishWorkout() else { throw HarnessError.notSaved }
+        if seed.route { try await addRoute(to: workout, in: store) }
         return workout
+    }
+
+    /// A location every second of the workout, heading north from Natal: as
+    /// an app does with HKWorkoutRouteBuilder, after saving the workout.
+    static func addRoute(to workout: HKWorkout, in store: HKHealthStore) async throws {
+        let seconds = Int(workout.endDate.timeIntervalSince(workout.startDate))
+        let locations = (0 ... seconds).map { second in
+            CLLocation(
+                coordinate: CLLocationCoordinate2D(latitude: -5.8 + Double(second) * 0.00003, longitude: -35.2),
+                altitude: 10, horizontalAccuracy: 5, verticalAccuracy: 5, course: 0, speed: 3,
+                timestamp: workout.startDate.addingTimeInterval(Double(second))
+            )
+        }
+        let builder = HKWorkoutRouteBuilder(healthStore: store, device: .local())
+        try await builder.insertRouteData(locations)
+        _ = try await builder.finishRoute(with: workout, metadata: nil)
+    }
+
+    /// Distance its app saves after the workout, over its time.
+    static func addDistance(to workout: HKWorkout, in store: HKHealthStore) async throws {
+        let sample = HKQuantitySample(type: HealthReader.distanceType, quantity: HKQuantity(unit: .meter(), doubleValue: lateMeters), start: workout.startDate, end: workout.endDate)
+        try await store.save(sample)
     }
 
     enum HarnessError: Error {
@@ -191,8 +221,10 @@ final class HealthHarnessViewController: UIViewController {
                     show("asking again")
                 }
             }
-            // A simulator the test ran on before: its workouts go first.
-            _ = try? await store.deleteObjects(of: HealthReader.workoutType, predicate: HKQuery.predicateForObjects(from: HKSource.default()))
+            // A simulator the test ran on before: what it wrote goes first.
+            for type in HealthHarness.writeTypes {
+                _ = try? await store.deleteObjects(of: type, predicate: HKQuery.predicateForObjects(from: HKSource.default()))
+            }
             show("writing")
             var workouts: [HKWorkout] = []
             for seed in HealthHarness.seeds {
@@ -206,7 +238,30 @@ final class HealthHarnessViewController: UIViewController {
             let sent = FakeHealthServer.sessions
             let types = sent.compactMap { $0["type"] as? String }.sorted()
             let run = sent.first { $0["type"] as? String == "running" }
+            let route = run?["route"] as? [[Any]] ?? []
+            let routeShape = route.allSatisfy { $0.count == 3 && $0[0] is Int && $0[1] is Double && $0[2] is Double }
             let firstInitial = FakeHealthServer.received.first?.body["initial"] as? Bool
+
+            // What their apps save after the workouts: the walk's route, the
+            // run's distance. The route's observer may sync first: whatever
+            // reached the server since counts.
+            show("saving later")
+            let before = FakeHealthServer.sessions.count
+            try await HealthHarness.addDistance(to: workouts[HealthHarness.lateDistance], in: store)
+            try await HealthHarness.addRoute(to: workouts[HealthHarness.lateRoute], in: store)
+            _ = await sync.run()
+            let later = FakeHealthServer.sessions.dropFirst(before)
+            let walkId = WorkoutMapper.id(workouts[HealthHarness.lateRoute].uuid)
+            let runId = WorkoutMapper.id(workouts[HealthHarness.lateDistance].uuid)
+            let lateRoute = (later.last { $0["id"] as? String == walkId }?["route"] as? [Any])?.count ?? 0
+            let lateDistance = later.last { $0["id"] as? String == runId }?["distance_m"] as? Double ?? 0
+            let laterIds = Set(later.compactMap { $0["id"] as? String })
+
+            // Nothing new: nothing sent, the run still waiting for a route included.
+            show("quiet")
+            let settled = FakeHealthServer.sessions.count
+            _ = await sync.run()
+            let quiet = FakeHealthServer.sessions.count == settled
 
             // Deleted in Apple Health: the next sync says so.
             show("deleting")
@@ -229,6 +284,11 @@ final class HealthHarnessViewController: UIViewController {
                 "initial=\(firstInitial == true)",
                 "hr=\(run?["hr_avg"] as? Int ?? 0)/\(run?["hr_max"] as? Int ?? 0)",
                 "zone=\(run?["zone_offset"] as? Int ?? 0)",
+                "route=\(route.count)/\(routeShape)",
+                "lateroute=\(lateRoute)",
+                "latedistance=\(Int(lateDistance))",
+                "later=\(laterIds.count)",
+                "quiet=\(quiet)",
                 "deleted=\(deletedSent)",
                 "unlinked=\(unlinked)",
                 "bearer=\(bearer)"
