@@ -115,6 +115,11 @@ jobs:
           demo_account=""
           if [ -n "$DEMO_EMAIL" ] && [ -n "$DEMO_PASSWORD" ]; then
             demo_account="$RUNNER_TEMP/demo/account.json"
+            # Gone however the step ends: a failure, a cancel or the
+            # timeout (INT and TERM become an exit, which runs the trap).
+            trap 'rm -f "$demo_account"' EXIT
+            trap 'exit 130' INT
+            trap 'exit 143' TERM
             mkdir -p -m 700 "$RUNNER_TEMP/demo"
             ( umask 077; jq -n '{email: env.DEMO_EMAIL, password: env.DEMO_PASSWORD}' > "$demo_account" )
             echo "demo account: from the secrets"

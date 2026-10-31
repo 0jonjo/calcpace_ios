@@ -52,6 +52,11 @@ final class DemoAccountTests: XCTestCase {
         addTeardownBlock { [unowned self] in
             if !self.signedOut { self.signOutIfSignedIn(app) }
         }
+        // The pasteboard is the runner's (paste), and a failure stops the
+        // test before a defer is sure to run: emptied here as well.
+        addTeardownBlock {
+            UIPasteboard.general.items = []
+        }
         signIn(account, app: app)
 
         // (a) The runs list, a tab root.
