@@ -26,13 +26,17 @@ targets:
     dependencies:
       - package: HotwireNative
     # Apple Health: read only (HealthReader), and woken for new workouts
-    # (HealthSync's background delivery).
+    # (HealthSync's background delivery). Push: the "your run is in"
+    # notification, from APNs' development environment; the App Store
+    # build's distribution profile turns it into production when the
+    # archive is signed (I0).
     entitlements:
       path: Support/Calcpace.entitlements
       properties:
         com.apple.developer.healthkit: true
         com.apple.developer.healthkit.access: []
         com.apple.developer.healthkit.background-delivery: true
+        aps-environment: development
     info:
       path: Support/Info.plist
       properties:

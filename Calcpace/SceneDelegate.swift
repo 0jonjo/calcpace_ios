@@ -29,6 +29,13 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         window?.makeKeyAndVisible()
 
         navigator.start()
+
+        // A tapped "your run is in" notification opens its run on top of the
+        // home page. The tap that launched the app may have come before this
+        // point, and waited for it (PushInbox).
+        PushInbox.shared.ready { [weak self] url in
+            self?.navigator.route(url)
+        }
     }
 
     // Each time the app comes to the front: what Apple Health got since,
