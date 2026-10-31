@@ -88,31 +88,48 @@ final class DemoAccountTests: XCTestCase {
         let download = webView.links.matching(NSPredicate(format: "label BEGINSWITH %@", "Download CSV")).firstMatch
         tap(download, "the Download CSV link (the demo account has runs of its own)", in: webView)
 
+        // The sheet is another process's: hit tests in the app pass through
+        // it, so it is told by its own elements. The file's name is not a
+        // StaticText there (LP.CaptionBar.BottomCaption is an Other).
         let sheet = app.otherElements["ActivityListView"]
-        let fileName = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "calcpace_activities")).firstMatch
+        let fileName = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "calcpace_activities")).firstMatch
+        let saveToFiles = app.buttons["Save to Files"]
         let failure = app.alerts.firstMatch
-        let shown = waitForAny([sheet, fileName, failure], timeout: 60)
+        let shown = waitForAny([fileName, saveToFiles, failure], timeout: 60)
         attachScreenshot(of: app, named: "demo-csv-share-sheet")
         guard let shown, shown != failure else {
             attachHierarchy(of: app, named: "no-share-sheet")
             return XCTFail(failure.exists ? "the export failed: \(failure.label)" : "no share sheet for the CSV")
         }
 
+        // Closed: its file name and its actions gone. The ActivityListView
+        // around them stays in the tree after it closes (iOS 26), so it is
+        // no sign either way. Close if it has one; else dragged down from
+        // the file's row, a fast pan that no item takes for a tap; else a
+        // tap above it, on the empty middle of the site's header.
+        let closed = { !fileName.exists && !saveToFiles.exists }
         let close = app.buttons["Close"]
-        if close.waitForExistence(timeout: 5) {
+        var gone = false
+        if close.exists {
             close.tap()
-        } else {
-            // Dragged down by its top edge.
-            let frame = shown.frame
-            let top = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: frame.midX, dy: max(frame.minY, 0) + 10))
-            top.press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.98)))
+            gone = waitUntil(timeout: 6, closed)
         }
-        // On iOS 26 the sheet's ActivityListView stays in the tree after it
-        // closes, and even says it is hittable: closed is the file's name
-        // gone and Export in reach again.
-        let export = control("Export", in: webView)
-        XCTAssertTrue(waitUntil(timeout: 15) { !self.onScreen(fileName) && self.onScreen(export) },
-                      "the share sheet did not close")
+        if !gone {
+            let top = sheet.exists && sheet.frame.height > 0 ? sheet.frame.minY + 40 : app.frame.height * 0.62
+            let from = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: app.frame.midX, dy: top))
+            from.press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.99)),
+                       withVelocity: .fast, thenHoldForDuration: 0)
+            gone = waitUntil(timeout: 6, closed)
+        }
+        if !gone {
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.12)).tap()
+            gone = waitUntil(timeout: 6, closed)
+        }
+        attachScreenshot(of: app, named: "demo-csv-share-sheet-closed")
+        guard gone else {
+            attachHierarchy(of: app, named: "share-sheet-open")
+            return XCTFail("the share sheet did not close")
+        }
         XCTAssertTrue(text("My Activities", in: webView).waitForExistence(timeout: 15), "the runs list is gone after the share sheet")
     }
 
@@ -129,7 +146,8 @@ final class DemoAccountTests: XCTestCase {
         // WebKit goes straight to the picker for a GPX/FIT/TCX input; a
         // menu first, should a version show one, leads to it.
         let pickerCancel = app.navigationBars.buttons["Cancel"]
-        let pickerSigns = [pickerCancel, app.buttons["Browse"], app.buttons["Recents"], app.tabBars.firstMatch]
+        let pickerSigns = [pickerCancel, app.buttons["Browse"], app.buttons["Recents"], app.navigationBars["Browse"],
+                           app.navigationBars["Recents"], app.tabBars.firstMatch]
         let menuItem = app.descendants(matching: .any)
             .matching(NSPredicate(format: "label IN %@", ["Choose File", "Choose Files"])).firstMatch
         var shown = waitForAny(pickerSigns + [menuItem], timeout: 30)
@@ -150,7 +168,7 @@ final class DemoAccountTests: XCTestCase {
             return XCTFail("the document picker has no Cancel")
         }
         cancel.tap()
-        XCTAssertTrue(waitUntil(timeout: 15) { !self.onScreen(pickerCancel) && self.onScreen(chooseFile) },
+        XCTAssertTrue(waitUntil(timeout: 15) { !cancel.exists && chooseFile.exists },
                       "the document picker did not close")
         XCTAssertTrue(chooseFile.waitForExistence(timeout: 15), "the import form is gone after cancelling")
 
@@ -371,10 +389,10 @@ final class DemoAccountTests: XCTestCase {
         XCTAssertNotEqual(safari.state, .runningForeground, "\(what) opened in Safari", file: file, line: line)
     }
 
-    // The first of these on the screen, or nil when none is in time.
+    // The first of these to show, or nil when none does in time.
     private func waitForAny(_ elements: [XCUIElement], timeout: TimeInterval) -> XCUIElement? {
-        guard waitUntil(timeout: timeout, { elements.contains { self.onScreen($0) } }) else { return nil }
-        return elements.first { onScreen($0) }
+        guard waitUntil(timeout: timeout, { elements.contains { $0.exists } }) else { return nil }
+        return elements.first { $0.exists }
     }
 
     private func waitUntil(timeout: TimeInterval, _ condition: @escaping () -> Bool) -> Bool {
@@ -382,8 +400,8 @@ final class DemoAccountTests: XCTestCase {
         return XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: predicate, object: nil)], timeout: timeout) == .completed
     }
 
-    // In the tree and where a tap would reach it. Existing is not enough: a
-    // closed share sheet's elements linger in the tree on iOS 26.
+    // In the tree and where a tap would reach it: a closed share sheet's
+    // ActivityListView lingers in the tree on iOS 26.
     private func onScreen(_ element: XCUIElement) -> Bool {
         element.exists && element.isHittable
     }
