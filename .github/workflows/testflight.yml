@@ -1,0 +1,96 @@
+name: TestFlight
+
+# A tag v1.2.3 builds the app and uploads it to TestFlight (fastlane beta).
+# Started by hand, it can also run "certs" once, to create the App Store
+# certificate and profile in calcpace_ios_certs (RELEASING.md). Never on
+# pull requests: those have no secrets, and ci.yml tests them.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      lane:
+        description: "beta uploads a build; certs creates the certificate and profile (once)"
+        type: choice
+        options: [beta, certs]
+        default: beta
+
+concurrency:
+  group: testflight
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+# Third-party actions that see the signing secrets are pinned to a commit.
+jobs:
+  # On Linux, before a macOS runner starts: a tag pushed before the account
+  # exists stops here with the list of what is missing.
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check the release secrets
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          missing=""
+          for name in ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8_BASE64 MATCH_GIT_URL MATCH_PASSWORD MATCH_GIT_BASIC_AUTHORIZATION APPLE_TEAM_ID; do
+            [ -n "${!name}" ] || missing="$missing $name"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Missing repository secrets:$missing. See RELEASING.md."
+            exit 1
+          fi
+
+  fastlane:
+    needs: secrets
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      # The same Xcode as ci.yml, so what ships is what the tests built.
+      - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+        with:
+          xcode-version: "26.3"
+
+      # fastlane beta runs xcodegen generate itself.
+      - name: Install XcodeGen
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+        run: brew install xcodegen
+
+      - uses: ruby/setup-ruby@e81a8fa391b11a595c1b7ed84177cc0fe02faf83 # v1.328.0
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      - name: fastlane ${{ inputs.lane || 'beta' }}
+        env:
+          LANE: ${{ inputs.lane || 'beta' }}
+          CERTS_CREATE: ${{ inputs.lane == 'certs' }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          FASTLANE_SKIP_UPDATE_CHECK: "1"
+          FASTLANE_HIDE_CHANGELOG: "1"
+        run: bundle exec fastlane ios "$LANE"
+
+      # xcodebuild's full log, when the archive or the export fails.
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: gym-logs
+          path: ~/Library/Logs/gym
+          if-no-files-found: ignore
+          retention-days: 14

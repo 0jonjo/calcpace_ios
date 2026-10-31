@@ -1,0 +1,24 @@
+# match keeps the App Store distribution certificate and profile encrypted
+# (MATCH_PASSWORD) in the private repository calcpace_ios_certs, so CI can
+# sign without a Mac or a keychain of its own.
+#
+# MATCH_GIT_URL: https://github.com/0jonjo/calcpace_ios_certs.git
+# MATCH_GIT_BASIC_AUTHORIZATION: base64 of "user:token", a fine-grained token
+# with Contents access to that repository only (match reads it from the
+# environment by that name).
+git_url(ENV["MATCH_GIT_URL"])
+storage_mode("git")
+git_branch("main")
+# Who the certs commit is from. CI has no git identity, and without one the
+# commit fails, which match only logs (see the certs lane).
+git_full_name("calcpace release")
+git_user_email("0jonjo@users.noreply.github.com")
+
+type("appstore")
+app_identifier(["app.calcpace.ios"])
+team_id(ENV["APPLE_TEAM_ID"])
+
+# Read only: CI, and anyone running match by hand, installs what is in the
+# repository and never creates or revokes anything. Only the certs lane
+# writes, when the workflow's "certs" choice sets CERTS_CREATE=true.
+readonly(true)

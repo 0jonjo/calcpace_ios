@@ -8,7 +8,7 @@ The project is built without a Mac:
 
 - **XcodeGen.** The Xcode project is `project.yml`. CI generates `Calcpace.xcodeproj` on every run, and no `.xcodeproj` is committed.
 - **GitHub Actions on `macos`.** Every pull request builds the app and runs the unit and UI tests on the simulator. The run uploads a video of the simulator and the test screenshots as an artifact.
-- **TestFlight from tags.** Coming once the App Store Connect account exists. Signing will use an App Store Connect API key, with certificates kept in a separate private repository.
+- **TestFlight from tags.** A tag `v*` runs fastlane on `macos`, signed with an App Store Connect API key and match, the certificates kept in a separate private repository. Written ahead of the App Store Connect account: [RELEASING.md](RELEASING.md) lists the keys it waits for.
 
 To work on it with a Mac:
 

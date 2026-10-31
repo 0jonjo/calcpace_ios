@@ -1,0 +1,135 @@
+# Release lanes for the TestFlight workflow (.github/workflows/testflight.yml).
+# Written before the Apple Developer account existed: every key, id and
+# password comes from the environment, and RELEASING.md lists them.
+
+require "tmpdir"
+require "yaml"
+
+default_platform(:ios)
+
+PROJECT = "Calcpace.xcodeproj"
+SCHEME = "Calcpace"
+APP_ID = "app.calcpace.ios"
+# Fastfile code runs inside fastlane/, actions from the repository root.
+CHANGELOG = "testflight_changelog.txt"
+
+platform :ios do
+  desc "Install the App Store certificate and profile (creates them with CERTS_CREATE=true)"
+  lane :certs do
+    setup_ci if ENV["CI"]
+    api_key
+    # CERTS_CREATE rather than MATCH_READONLY, which setup_ci overwrites.
+    create = ENV["CERTS_CREATE"] == "true"
+    # renew_expired_certs: an expired distribution certificate is revoked
+    # and replaced (with its profile) through the API key. Only when writing.
+    match(readonly: !create, renew_expired_certs: true)
+    check_certs_pushed if create
+  end
+
+  desc "Build the app and upload it to TestFlight"
+  lane :beta do
+    check_tag_matches_version
+    check_app_icon
+
+    # No .xcodeproj is committed; it is generated from project.yml, as on
+    # every CI run.
+    Dir.chdir("..") { sh("xcodegen", "generate") }
+
+    # A temporary keychain on CI, which match installs the certificate into.
+    setup_ci if ENV["CI"]
+    api_key
+    match(readonly: true)
+
+    # The project signs automatically, which on CI would mean asking Apple
+    # for a development profile. The archive signs with match's App Store
+    # profile instead, on the app target only: the Swift package targets
+    # (Hotwire Native) refuse a provisioning profile.
+    update_code_signing_settings(
+      path: PROJECT,
+      targets: [SCHEME],
+      build_configurations: ["Release"],
+      use_automatic_signing: false,
+      team_id: ENV["APPLE_TEAM_ID"],
+      code_sign_identity: "Apple Distribution",
+      profile_name: ENV["sigh_#{APP_ID}_appstore_profile-name"]
+    )
+
+    # Every upload needs a build number above the last one; TestFlight is
+    # the record of what was uploaded, so ask it rather than keep a counter.
+    build_number = latest_testflight_build_number(app_identifier: APP_ID, initial_build_number: 0) + 1
+
+    build_app(
+      project: PROJECT,
+      scheme: SCHEME,
+      configuration: "Release", # aps-environment production (project.yml)
+      export_method: "app-store",
+      output_directory: "build",
+      # The Info.plist reads CFBundleVersion from CURRENT_PROJECT_VERSION.
+      xcargs: "CURRENT_PROJECT_VERSION=#{build_number}"
+    )
+
+    # With a changelog, pilot waits only until the build shows up to set
+    # "What to Test", then leaves Apple's processing (10-30 min) running
+    # without the job. With none, it returns right after the upload.
+    changelog = File.exist?(CHANGELOG) ? File.read(CHANGELOG).strip : ""
+    upload_to_testflight(
+      changelog: changelog.empty? ? nil : changelog,
+      skip_waiting_for_build_processing: true
+    )
+  end
+
+  # The App Store Connect API key: creates and reads certificates and
+  # profiles for match, reads the last build number, uploads. No Apple ID
+  # password or two-factor prompt anywhere.
+  private_lane :api_key do
+    app_store_connect_api_key(
+      key_id: ENV.fetch("ASC_KEY_ID"),
+      issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+      key_content: ENV.fetch("ASC_KEY_P8_BASE64"),
+      is_key_content_base64: true
+    )
+  end
+
+  # match only logs a failed commit or push to the certificates repository
+  # (git_storage.rb), and the run still ends green with the certificate on
+  # this runner alone. Clone the repository afresh and look for it there.
+  private_lane :check_certs_pushed do
+    Dir.mktmpdir do |dir|
+      # The header through git's environment, never on the command line.
+      env = {
+        "GIT_TERMINAL_PROMPT" => "0",
+        "GIT_CONFIG_COUNT" => "1",
+        "GIT_CONFIG_KEY_0" => "http.extraHeader",
+        "GIT_CONFIG_VALUE_0" => "Authorization: Basic #{ENV.fetch("MATCH_GIT_BASIC_AUTHORIZATION")}"
+      }
+      cloned = system(env, "git", "clone", "--quiet", "--depth", "1", "--branch", "main",
+                      ENV.fetch("MATCH_GIT_URL"), dir)
+      UI.user_error!("Could not clone the certificates repository to check match's push") unless cloned
+
+      missing = ["certs/distribution/*.cer", "certs/distribution/*.p12", "profiles/appstore/*.mobileprovision"]
+                .select { |pattern| Dir[File.join(dir, pattern)].empty? }
+      UI.user_error!("match did not push #{missing.join(", ")} to the certificates repository") if missing.any?
+
+      UI.success("The certificate and profile are in the certificates repository")
+    end
+  end
+
+  # App Store Connect refuses a build without an icon, after the 10-minute
+  # archive; this says so in seconds.
+  private_lane :check_app_icon do
+    next if Dir["../Calcpace/**/AppIcon.appiconset"].any?
+
+    UI.user_error!("No AppIcon.appiconset under Calcpace/: App Store Connect rejects a build without an icon (A5)")
+  end
+
+  # A tag v1.2.3 ships MARKETING_VERSION 1.2.3, so the version in the store
+  # is the one the tag says. A run started by hand ships whatever
+  # project.yml says.
+  private_lane :check_tag_matches_version do
+    next unless ENV["GITHUB_REF_TYPE"] == "tag"
+
+    tag = ENV.fetch("GITHUB_REF_NAME")
+    version = YAML.load_file("../project.yml").dig("settings", "base", "MARKETING_VERSION").to_s
+    UI.user_error!("Tag #{tag} does not match MARKETING_VERSION #{version} in project.yml") unless tag == "v#{version}"
+  end
+end

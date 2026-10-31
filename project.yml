@@ -12,6 +12,11 @@ packages:
     url: https://github.com/hotwired/hotwire-native-ios
     exactVersion: 1.3.1
 
+# MARKETING_VERSION is the version people see (Android's versionName),
+# bumped by hand in the release PR; the tag must say the same (v1.0.0).
+# CURRENT_PROJECT_VERSION is the build (Android's versionCode): 1 here for
+# local and CI builds, and the TestFlight lane replaces it with the latest
+# uploaded build + 1. The user agent reads both (Calcpace iOS/1.0.0 (1);).
 settings:
   base:
     MARKETING_VERSION: 1.0.0
@@ -27,16 +32,18 @@ targets:
       - package: HotwireNative
     # Apple Health: read only (HealthReader), and woken for new workouts
     # (HealthSync's background delivery). Push: the "your run is in"
-    # notification, from APNs' development environment; the App Store
-    # build's distribution profile turns it into production when the
-    # archive is signed (I0).
+    # notification. aps-environment comes from APS_ENVIRONMENT below:
+    # development for Debug (the simulator, a Mac's Xcode run), production
+    # for Release, which is what fastlane archives for TestFlight and the
+    # App Store. Written down rather than left to the export step, so the
+    # entitlements in the archive match the distribution profile.
     entitlements:
       path: Support/Calcpace.entitlements
       properties:
         com.apple.developer.healthkit: true
         com.apple.developer.healthkit.access: []
         com.apple.developer.healthkit.background-delivery: true
-        aps-environment: development
+        aps-environment: "$(APS_ENVIRONMENT)"
     info:
       path: Support/Info.plist
       properties:
@@ -68,6 +75,11 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.calcpace.ios
         TARGETED_DEVICE_FAMILY: "1"
+      configs:
+        Debug:
+          APS_ENVIRONMENT: development
+        Release:
+          APS_ENVIRONMENT: production
 
   CalcpaceTests:
     type: bundle.unit-test
