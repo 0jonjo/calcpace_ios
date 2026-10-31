@@ -59,7 +59,9 @@ enum WorkoutMapper {
     static func judge(_ facts: WorkoutFacts) -> Judged {
         guard facts.kind != .other, validClock(facts) else { return .left }
         guard let session = wire(facts) else { return .awaitsDistance }
-        return .ready(session, awaitsRoute: facts.mayHaveRoute && session.route == nil)
+        // A route there but unusable (a single fix, too long) never changes:
+        // only one not saved yet is waited for.
+        return .ready(session, awaitsRoute: facts.mayHaveRoute && facts.route == nil)
     }
 
     static func wire(_ facts: WorkoutFacts) -> WireSession? {
@@ -72,7 +74,7 @@ enum WorkoutMapper {
         guard let distance = facts.distanceM, distance > 0, distance.isFinite else { return nil }
         guard validClock(facts) else { return nil }
         let duration = Int(facts.duration.rounded())
-        let route = facts.mayHaveRoute ? facts.route.map(HealthRoute.thin) ?? [] : []
+        let route = facts.mayHaveRoute ? facts.route.map { HealthRoute.thin(HealthRoute.clip($0, from: facts.start, to: facts.end)) } ?? [] : []
 
         return WireSession(
             id: id(facts.id),

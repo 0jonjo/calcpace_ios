@@ -97,6 +97,26 @@ final class HealthReader {
         )
     }
 
+    /// Every location of the routes its app tied to the workout (one, or a
+    /// few when the GPS dropped out), or nil: none yet, routes not allowed
+    /// (HealthKit then says there is none), or one that failed to read,
+    /// rather than half a map.
+    func route(of workout: HKWorkout) async -> [HealthRoute.Point]? {
+        let routes: [HKWorkoutRoute] = await withCheckedContinuation { continuation in
+            let query = HKSampleQuery(sampleType: Self.routeType, predicate: HKQuery.predicateForObjects(from: workout), limit: HKObjectQueryNoLimit, sortDescriptors: nil) { _, samples, _ in
+                continuation.resume(returning: (samples ?? []).compactMap { $0 as? HKWorkoutRoute })
+            }
+            store.execute(query)
+        }
+        guard !routes.isEmpty else { return nil }
+        var points: [HealthRoute.Point] = []
+        for route in routes {
+            guard let some = await locations(of: route) else { return nil }
+            points += some
+        }
+        return points.isEmpty ? nil : points
+    }
+
     // MARK: Private
 
     private static func kind(_ type: HKWorkoutActivityType) -> WorkoutFacts.Kind {
@@ -109,7 +129,7 @@ final class HealthReader {
 
     /// The workout's own sum; else the distance samples its app tied to it
     /// after saving it; else its app's samples over its time. A workout
-    /// still without distance is left out (WorkoutMapper) and not read again.
+    /// still without distance waits and is read again (PendingWorkouts).
     private func distance(of workout: HKWorkout) async -> Double? {
         if let sum = workout.statistics(for: Self.distanceType)?.sumQuantity() {
             return sum.doubleValue(for: .meter())
@@ -134,26 +154,6 @@ final class HealthReader {
             }
             store.execute(query)
         }
-    }
-
-    /// Every location of the routes its app tied to the workout (one, or a
-    /// few when the GPS dropped out), or nil: none yet, routes not allowed
-    /// (HealthKit then says there is none), or one that failed to read,
-    /// rather than half a map.
-    private func route(of workout: HKWorkout) async -> [HealthRoute.Point]? {
-        let routes: [HKWorkoutRoute] = await withCheckedContinuation { continuation in
-            let query = HKSampleQuery(sampleType: Self.routeType, predicate: HKQuery.predicateForObjects(from: workout), limit: HKObjectQueryNoLimit, sortDescriptors: nil) { _, samples, _ in
-                continuation.resume(returning: (samples ?? []).compactMap { $0 as? HKWorkoutRoute })
-            }
-            store.execute(query)
-        }
-        guard !routes.isEmpty else { return nil }
-        var points: [HealthRoute.Point] = []
-        for route in routes {
-            guard let some = await locations(of: route) else { return nil }
-            points += some
-        }
-        return points.isEmpty ? nil : points
     }
 
     /// HKWorkoutRouteQuery hands the locations over in batches, the last

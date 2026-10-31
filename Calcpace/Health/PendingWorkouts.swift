@@ -31,14 +31,39 @@ enum PendingWorkouts {
     static let maxAge = 48 * 3600
     static let maxEntries = 100
 
+    /// What a sync does with one workout it judged: the session to send, if
+    /// any, and what it waits for next (nil: nothing, off the list).
+    /// `waiting`: its reason on the list before; `changed`: the anchor
+    /// brought it (new or written again), rather than a read by id.
+    static func next(_ judged: WorkoutMapper.Judged, waiting: Reason?, changed: Bool) -> (send: WireSession?, wait: Reason?) {
+        let sent = !changed && waiting == .route
+        switch judged {
+        case let .ready(session, awaitsRoute):
+            guard awaitsRoute else { return (session, nil) }
+            // Sent once already, unchanged since: read again only for its route.
+            return (sent ? nil : session, .route)
+        case .awaitsDistance:
+            // Sent already, and its distance failed to read this time (the
+            // phone locked mid-sync): still only its route is missing.
+            return (nil, sent ? .route : .distance)
+        case .left:
+            return (nil, nil)
+        }
+    }
+
     /// `id` waits for `reason`; one already waiting keeps its first sighting.
-    /// Keeps the newest `maxEntries`.
+    /// Past `maxEntries`, those waiting for a route go first (they only lose
+    /// a map; one waiting for its distance was never sent), the oldest first.
     static func mark(_ list: List, _ id: String, _ reason: Reason, now: Int) -> List {
         var list = list
         list[id] = Entry(since: list[id]?.since ?? now, reason: reason)
         guard list.count > maxEntries else { return list }
-        let newest = list.sorted { $0.value.since > $1.value.since }.prefix(maxEntries)
-        return Dictionary(uniqueKeysWithValues: newest.map { ($0.key, $0.value) })
+        let kept = list.sorted { a, b in
+            if a.value.reason != b.value.reason { return a.value.reason == .distance }
+            if a.value.since != b.value.since { return a.value.since > b.value.since }
+            return a.key < b.key
+        }.prefix(maxEntries)
+        return Dictionary(uniqueKeysWithValues: kept.map { ($0.key, $0.value) })
     }
 
     static func remove<S: Sequence>(_ list: List, _ ids: S) -> List where S.Element == String {

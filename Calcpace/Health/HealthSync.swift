@@ -121,21 +121,16 @@ actor HealthSync {
         var sessions: [WireSession] = []
         for workout in changes.workouts + rechecked {
             let id = WorkoutMapper.id(workout.uuid)
-            switch WorkoutMapper.judge(await reader.facts(workout)) {
-            case let .ready(session, awaitsRoute):
-                if awaitsRoute {
-                    // Sent once already, unchanged since: read again only
-                    // for its route.
-                    let sent = !changed.contains(id) && waiting[id]?.reason == .route
-                    pending = PendingWorkouts.mark(pending, id, .route, now: now)
-                    if sent { continue }
-                } else {
-                    pending = PendingWorkouts.remove(pending, [id])
-                }
-                sessions.append(session)
-            case .awaitsDistance:
-                pending = PendingWorkouts.mark(pending, id, .distance, now: now)
-            case .left:
+            let isChanged = changed.contains(id)
+            let reason = waiting[id]?.reason
+            // Waiting only for its route, which is still not there: the rest
+            // is not read again.
+            if !isChanged, reason == .route, await reader.route(of: workout) == nil { continue }
+            let next = PendingWorkouts.next(WorkoutMapper.judge(await reader.facts(workout)), waiting: pending[id]?.reason, changed: isChanged)
+            if let session = next.send { sessions.append(session) }
+            if let wait = next.wait {
+                pending = PendingWorkouts.mark(pending, id, wait, now: now)
+            } else {
                 pending = PendingWorkouts.remove(pending, [id])
             }
         }

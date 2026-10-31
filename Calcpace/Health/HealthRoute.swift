@@ -24,6 +24,17 @@ enum HealthRoute {
     /// sessions of an upload come without their route (HealthPayload.batches).
     static let maxPointsPerUpload = 40_000
 
+    /// HealthConnect::SessionImporter::ROUTE_SLACK: the site drops a route
+    /// whole if a single point falls further than this outside the workout.
+    static let slack: TimeInterval = 60
+
+    /// The points within the workout's time, `slack` either side: a fix an
+    /// app saved before the start or after the end would cost the map.
+    static func clip(_ points: [Point], from start: Date, to end: Date) -> [Point] {
+        let window = start.addingTimeInterval(-slack) ... end.addingTimeInterval(slack)
+        return points.filter { window.contains($0.time) }
+    }
+
     /// A point every `spacing` at most, the first and the last always: what
     /// the site keeps of a route anyway (Recording#polyline), at a fraction
     /// of the upload. A route still longer than the site takes goes not at
