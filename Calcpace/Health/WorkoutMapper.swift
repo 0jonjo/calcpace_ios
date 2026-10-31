@@ -27,6 +27,14 @@ struct WorkoutFacts {
     let device: String?
     let hrAvg: Double?
     let hrMax: Double?
+    /// Its route, when its app saved one (and the athlete let the app read
+    /// it); not read for a workout indoors.
+    var route: [HealthRoute.Point]? = nil
+
+    /// Read for a route: an outdoor run or walk, the only ones with a map.
+    var mayHaveRoute: Bool {
+        kind != .other && !indoor
+    }
 }
 
 /// A workout from Apple Health → one entry of "sessions" in
@@ -37,6 +45,25 @@ struct WorkoutFacts {
 enum WorkoutMapper {
     private static let maxDevice = 100
 
+    /// What a sync does with a workout (HealthSync, PendingWorkouts).
+    enum Judged: Equatable {
+        /// Sent. `awaitsRoute`: an outdoor run or walk without its route
+        /// yet, read again for it.
+        case ready(WireSession, awaitsRoute: Bool)
+        /// A run or walk without its distance yet: read again for it.
+        case awaitsDistance
+        /// Never sent: no run or walk, or a clock that will not do.
+        case left
+    }
+
+    static func judge(_ facts: WorkoutFacts) -> Judged {
+        guard facts.kind != .other, validClock(facts) else { return .left }
+        guard let session = wire(facts) else { return .awaitsDistance }
+        // A route there but unusable (a single fix, too long) never changes:
+        // only one not saved yet is waited for.
+        return .ready(session, awaitsRoute: facts.mayHaveRoute && facts.route == nil)
+    }
+
     static func wire(_ facts: WorkoutFacts) -> WireSession? {
         let type: String
         switch facts.kind {
@@ -45,9 +72,9 @@ enum WorkoutMapper {
         case .other: return nil
         }
         guard let distance = facts.distanceM, distance > 0, distance.isFinite else { return nil }
-        guard facts.duration.isFinite, facts.end > facts.start else { return nil }
+        guard validClock(facts) else { return nil }
         let duration = Int(facts.duration.rounded())
-        guard duration > 0 else { return nil }
+        let route = facts.mayHaveRoute ? facts.route.map { HealthRoute.thin(HealthRoute.clip($0, from: facts.start, to: facts.end)) } ?? [] : []
 
         return WireSession(
             id: id(facts.id),
@@ -61,8 +88,30 @@ enum WorkoutMapper {
             durationS: duration,
             hrAvg: beats(facts.hrAvg),
             hrMax: beats(facts.hrMax),
-            elevationGainM: facts.elevationGainM.flatMap { $0 >= 0 && $0.isFinite ? $0 : nil }
+            elevationGainM: facts.elevationGainM.flatMap { $0 >= 0 && $0.isFinite ? $0 : nil },
+            route: route.isEmpty ? nil : HealthRoute.wire(route)
         )
+    }
+
+    /// A distance sample its app saved apart from the workout.
+    struct DistanceSample {
+        let start: Date
+        let end: Date
+        let meters: Double
+    }
+
+    /// The samples of a workout's app over its time, when none were tied to
+    /// it: each counted where its middle falls, so a sample at the seam of
+    /// two back-to-back workouts counts once, and one saved over exactly the
+    /// workout's time counts (HealthKit compares dates finer than they read
+    /// back, so a strict window of that time leaves it out). Nil for none.
+    static func meters(_ samples: [DistanceSample], from start: Date, to end: Date) -> Double? {
+        guard end >= start else { return nil }
+        let total = samples
+            .filter { $0.meters.isFinite && $0.meters > 0 && $0.end >= $0.start }
+            .filter { (start ... end).contains($0.start.addingTimeInterval($0.end.timeIntervalSince($0.start) / 2)) }
+            .reduce(0) { $0 + $1.meters }
+        return total > 0 ? total : nil
     }
 
     /// How a workout is named on the wire, in "sessions" and in "deleted"
@@ -76,6 +125,11 @@ enum WorkoutMapper {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime]
         return formatter.string(from: date)
+    }
+
+    /// A whole second at least, its end after its start.
+    private static func validClock(_ facts: WorkoutFacts) -> Bool {
+        facts.duration.isFinite && facts.end > facts.start && Int(facts.duration.rounded()) > 0
     }
 
     private static func beats(_ value: Double?) -> Int? {

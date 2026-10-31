@@ -4,9 +4,10 @@ import Security
 
 /// What this iPhone keeps of its Apple Health link: the token the page
 /// handed over (the Keychain, readable after the first unlock so a
-/// background delivery can send, never backed up to another phone) and the
-/// HealthKit anchor of the last sync the server answered (UserDefaults).
-/// The token is never logged.
+/// background delivery can send, never backed up to another phone), and
+/// the HealthKit anchor of the last sync the server answered with the
+/// workouts still waiting then (PendingWorkouts), in UserDefaults. The
+/// token is never logged.
 final class HealthLinkStore {
     static let shared = HealthLinkStore()
 
@@ -16,6 +17,7 @@ final class HealthLinkStore {
 
     private static let tokenAccount = "link-token"
     private static let anchorKey = "appleHealth.anchor"
+    private static let pendingKey = "appleHealth.pending"
     private static let installedKey = "appleHealth.installed"
 
     init(service: String = "app.calcpace.ios.apple-health", defaults: UserDefaults = .standard) {
@@ -34,23 +36,30 @@ final class HealthLinkStore {
         return try? NSKeyedUnarchiver.unarchivedObject(ofClass: HKQueryAnchor.self, from: data)
     }
 
+    var pending: PendingWorkouts.List {
+        PendingWorkouts.decode(defaults.data(forKey: Self.pendingKey))
+    }
+
     /// A new link: its token, and a fresh start (the initial 30 days).
     @discardableResult
     func link(token: String) -> Bool {
         lock.lock()
         defer { lock.unlock() }
-        defaults.removeObject(forKey: Self.anchorKey)
+        removeProgress()
         return writeToken(token)
     }
 
     /// Saved only while `token` is still the link: a sync that finished
     /// after a "forget" or a new link must not leave its anchor behind.
-    func save(anchor: HKQueryAnchor?, for token: String) {
+    func save(anchor: HKQueryAnchor?, pending: PendingWorkouts.List, for token: String) {
         lock.lock()
         defer { lock.unlock() }
         guard readToken() == token else { return }
         if let anchor, let data = try? NSKeyedArchiver.archivedData(withRootObject: anchor, requiringSecureCoding: true) {
             defaults.set(data, forKey: Self.anchorKey)
+        }
+        if let data = PendingWorkouts.encode(pending) {
+            defaults.set(data, forKey: Self.pendingKey)
         }
     }
 
@@ -58,7 +67,7 @@ final class HealthLinkStore {
         lock.lock()
         defer { lock.unlock() }
         SecItemDelete(baseQuery as CFDictionary)
-        defaults.removeObject(forKey: Self.anchorKey)
+        removeProgress()
     }
 
     /// The Keychain outlives the app; UserDefaults doesn't. An app installed
@@ -70,6 +79,11 @@ final class HealthLinkStore {
     }
 
     // MARK: Private
+
+    private func removeProgress() {
+        defaults.removeObject(forKey: Self.anchorKey)
+        defaults.removeObject(forKey: Self.pendingKey)
+    }
 
     private var baseQuery: [String: Any] {
         [
