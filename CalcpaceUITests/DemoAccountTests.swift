@@ -32,6 +32,9 @@ final class DemoAccountTests: XCTestCase {
     private var safari: XCUIApplication { XCUIApplication(bundleIdentifier: "com.apple.mobilesafari") }
     private var springboard: XCUIApplication { XCUIApplication(bundleIdentifier: "com.apple.springboard") }
 
+    // Whether the run signed out on its own, or the teardown must.
+    private var signedOut = false
+
     override func setUpWithError() throws {
         continueAfterFailure = false
     }
@@ -45,9 +48,9 @@ final class DemoAccountTests: XCTestCase {
 
         // A session must not outlive a failure: the next tests expect the
         // signed-out front page, and the account its sessions.
-        var signedOut = false
+        signedOut = false
         addTeardownBlock { [unowned self] in
-            if !signedOut { self.signOutIfSignedIn(app) }
+            if !self.signedOut { self.signOutIfSignedIn(app) }
         }
         signIn(account, app: app)
 
