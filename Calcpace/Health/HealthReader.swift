@@ -130,9 +130,11 @@ final class HealthReader {
     /// The workout's own sum; else the distance samples its app tied to it
     /// after saving it; else its app's samples over its time. A workout
     /// still without distance waits and is read again (PendingWorkouts).
+    /// A workout saved before its distance holds a sum of zero, frozen: no
+    /// answer either.
     private func distance(of workout: HKWorkout) async -> Double? {
-        if let sum = workout.statistics(for: Self.distanceType)?.sumQuantity() {
-            return sum.doubleValue(for: .meter())
+        if let sum = workout.statistics(for: Self.distanceType)?.sumQuantity()?.doubleValue(for: .meter()), sum > 0 {
+            return sum
         }
         if let total = workout.totalDistance?.doubleValue(for: .meter()), total > 0 {
             return total
