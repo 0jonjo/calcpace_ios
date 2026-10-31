@@ -92,9 +92,26 @@ jobs:
       # simulator.mp4 is the whole run, installs included; app.mp4 is cut to
       # the UI tests, by the clock: when the recorder said it started, and
       # when xcodebuild printed the UI suite's start and end.
+      #
+      # The push relay: PushTests leaves an APNs payload in PUSH_DIR (handed
+      # to the test runner through TEST_RUNNER_PUSH_DIR) and the relay
+      # delivers it with simctl, which nothing inside the simulator can run.
       - name: Test, recording the simulator
         run: |
           mkdir -p artifacts
+          push_dir="$RUNNER_TEMP/push"
+          mkdir -p "$push_dir"
+          (
+            while :; do
+              if [ -f "$push_dir/push.apns" ]; then
+                mv "$push_dir/push.apns" "$push_dir/sending.apns"
+                echo "$(date +%T) pushing $(cat "$push_dir/sending.apns")"
+                xcrun simctl push "$SIMULATOR" app.calcpace.ios "$push_dir/sending.apns" || echo "simctl push failed"
+              fi
+              sleep 0.5
+            done
+          ) > artifacts/push-relay.log 2>&1 &
+          relay=$!
           xcrun simctl io "$SIMULATOR" recordVideo --codec=h264 --force artifacts/simulator.mp4 > artifacts/recorder.log 2>&1 &
           recorder=$!
           for _ in $(seq 1 30); do
@@ -102,7 +119,7 @@ jobs:
             sleep 1
           done
           set +e
-          xcodebuild test-without-building \
+          TEST_RUNNER_PUSH_DIR="$push_dir" xcodebuild test-without-building \
             -project Calcpace.xcodeproj \
             -scheme Calcpace \
             -destination "id=$SIMULATOR" \
@@ -116,6 +133,7 @@ jobs:
               esac
             done
           status=${PIPESTATUS[0]}
+          kill "$relay" 2>/dev/null
           # SIGINT lets simctl finish the file; a recorder that ignores it
           # must not hold the job until the timeout.
           kill -INT "$recorder" 2>/dev/null
