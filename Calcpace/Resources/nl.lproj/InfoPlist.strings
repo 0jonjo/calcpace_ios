@@ -1,0 +1,5 @@
+/* The Apple Health permission sheet: why the app reads workouts (calcpace_web apple_health.card.body, its first and last sentences). */
+"NSHealthShareUsageDescription" = "Calcpace importeert de runs en wandelingen die je Apple Watch en hardloopapps (Strava, Nike, Garmin, adidas) in de Gezondheid-app opslaan. We lezen alleen het tijdstip, de afstand, de duur, het hoogteverschil en de hartslag van die trainingen.";
+
+/* Required by App Store validation next to the read text, although the app only reads (HealthReader). */
+"NSHealthUpdateUsageDescription" = "Calcpace slaat niets op in de Gezondheid-app.";

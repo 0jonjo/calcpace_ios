@@ -1,0 +1,5 @@
+/* The Apple Health permission sheet: why the app reads workouts (calcpace_web apple_health.card.body, its first and last sentences). */
+"NSHealthShareUsageDescription" = "Calcpace importe les courses et marches que votre Apple Watch et vos applis de course (Strava, Nike, Garmin, adidas) enregistrent dans l'app Santé. Nous ne lisons que l'heure, la distance, la durée, le dénivelé et la fréquence cardiaque de ces séances.";
+
+/* Required by App Store validation next to the read text, although the app only reads (HealthReader). */
+"NSHealthUpdateUsageDescription" = "Calcpace n'enregistre rien dans l'app Santé.";

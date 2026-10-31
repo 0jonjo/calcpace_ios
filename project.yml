@@ -25,6 +25,14 @@ targets:
     sources: [Calcpace]
     dependencies:
       - package: HotwireNative
+    # Apple Health: read only (HealthReader), and woken for new workouts
+    # (HealthSync's background delivery).
+    entitlements:
+      path: Support/Calcpace.entitlements
+      properties:
+        com.apple.developer.healthkit: true
+        com.apple.developer.healthkit.access: []
+        com.apple.developer.healthkit.background-delivery: true
     info:
       path: Support/Info.plist
       properties:
@@ -34,6 +42,13 @@ targets:
         ITSAppUsesNonExemptEncryption: false
         LSRequiresIPhoneOS: true
         UILaunchScreen: {}
+        # Translated in each InfoPlist.strings (calcpace_web's
+        # apple_health.card.body).
+        # App Store validation wants it with any HealthKit app (ITMS-90683),
+        # one that only reads included. Only the UI tests' harness, in debug
+        # builds, ever asks to write.
+        NSHealthUpdateUsageDescription: "Calcpace doesn't write anything to the Health app."
+        NSHealthShareUsageDescription: "Calcpace imports the runs and walks your Apple Watch and running apps (Strava, Nike, Garmin, adidas) save to the Health app. We read only the time, distance, duration, climb and heart rate of those workouts."
         # The site is light only: a dark clock everywhere, whatever iOS 26's
         # bars make of the page under them.
         UIViewControllerBasedStatusBarAppearance: false
