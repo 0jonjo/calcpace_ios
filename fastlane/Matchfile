@@ -9,6 +9,10 @@
 git_url(ENV["MATCH_GIT_URL"])
 storage_mode("git")
 git_branch("main")
+# Who the certs commit is from. CI has no git identity, and without one the
+# commit fails, which match only logs (see the certs lane).
+git_full_name("calcpace release")
+git_user_email("0jonjo@users.noreply.github.com")
 
 type("appstore")
 app_identifier(["app.calcpace.ios"])

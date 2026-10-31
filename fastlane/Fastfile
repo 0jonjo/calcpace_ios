@@ -2,6 +2,7 @@
 # Written before the Apple Developer account existed: every key, id and
 # password comes from the environment, and RELEASING.md lists them.
 
+require "tmpdir"
 require "yaml"
 
 default_platform(:ios)
@@ -18,12 +19,17 @@ platform :ios do
     setup_ci if ENV["CI"]
     api_key
     # CERTS_CREATE rather than MATCH_READONLY, which setup_ci overwrites.
-    match(readonly: ENV["CERTS_CREATE"] != "true")
+    create = ENV["CERTS_CREATE"] == "true"
+    # renew_expired_certs: an expired distribution certificate is revoked
+    # and replaced (with its profile) through the API key. Only when writing.
+    match(readonly: !create, renew_expired_certs: true)
+    check_certs_pushed if create
   end
 
   desc "Build the app and upload it to TestFlight"
   lane :beta do
     check_tag_matches_version
+    check_app_icon
 
     # No .xcodeproj is committed; it is generated from project.yml, as on
     # every CI run.
@@ -82,6 +88,38 @@ platform :ios do
       key_content: ENV.fetch("ASC_KEY_P8_BASE64"),
       is_key_content_base64: true
     )
+  end
+
+  # match only logs a failed commit or push to the certificates repository
+  # (git_storage.rb), and the run still ends green with the certificate on
+  # this runner alone. Clone the repository afresh and look for it there.
+  private_lane :check_certs_pushed do
+    Dir.mktmpdir do |dir|
+      # The header through git's environment, never on the command line.
+      env = {
+        "GIT_TERMINAL_PROMPT" => "0",
+        "GIT_CONFIG_COUNT" => "1",
+        "GIT_CONFIG_KEY_0" => "http.extraHeader",
+        "GIT_CONFIG_VALUE_0" => "Authorization: Basic #{ENV.fetch("MATCH_GIT_BASIC_AUTHORIZATION")}"
+      }
+      cloned = system(env, "git", "clone", "--quiet", "--depth", "1", "--branch", "main",
+                      ENV.fetch("MATCH_GIT_URL"), dir)
+      UI.user_error!("Could not clone the certificates repository to check match's push") unless cloned
+
+      missing = ["certs/distribution/*.cer", "certs/distribution/*.p12", "profiles/appstore/*.mobileprovision"]
+                .select { |pattern| Dir[File.join(dir, pattern)].empty? }
+      UI.user_error!("match did not push #{missing.join(", ")} to the certificates repository") if missing.any?
+
+      UI.success("The certificate and profile are in the certificates repository")
+    end
+  end
+
+  # App Store Connect refuses a build without an icon, after the 10-minute
+  # archive; this says so in seconds.
+  private_lane :check_app_icon do
+    next if Dir["../Calcpace/**/AppIcon.appiconset"].any?
+
+    UI.user_error!("No AppIcon.appiconset under Calcpace/: App Store Connect rejects a build without an icon (A5)")
   end
 
   # A tag v1.2.3 ships MARKETING_VERSION 1.2.3, so the version in the store
