@@ -38,7 +38,10 @@ final class PushNotifications: NSObject, UNUserNotificationCenterDelegate {
 /// start, the tap that launched the app can come before the scene has made
 /// its Navigator and started it on the home page; the page is held until
 /// SceneDelegate says it is ready, and then opens on top of the home, so
-/// Back leads there. Only the last tap is kept.
+/// Back leads there. The same after the scene was let go with the process
+/// still up: SceneDelegate disconnects, and the next scene's ready takes
+/// it. A route that answers false (its scene is gone) keeps the page
+/// waiting too. Only the last tap is kept.
 ///
 /// Main thread only.
 @MainActor
@@ -46,23 +49,27 @@ final class PushInbox {
     static let shared = PushInbox()
 
     private var pending: URL?
-    private var route: (@MainActor (URL) -> Void)?
+    private var route: (@MainActor (URL) -> Bool)?
 
     func open(_ url: URL) {
-        if let route {
-            route(url)
-        } else {
-            pending = url
-        }
+        pending = url
+        deliver()
     }
 
     /// From SceneDelegate, once `navigator.start()` has run: opens what is
-    /// waiting, and every tap after.
-    func ready(_ route: @escaping @MainActor (URL) -> Void) {
+    /// waiting, and every tap after. `route` answers whether it opened it.
+    func ready(_ route: @escaping @MainActor (URL) -> Bool) {
         self.route = route
-        if let url = pending {
-            pending = nil
-            route(url)
-        }
+        deliver()
+    }
+
+    /// From SceneDelegate, when its scene goes: taps wait again.
+    func disconnect() {
+        route = nil
+    }
+
+    private func deliver() {
+        guard let url = pending, let route else { return }
+        if route(url) { pending = nil }
     }
 }

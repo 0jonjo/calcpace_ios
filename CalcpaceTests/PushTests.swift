@@ -148,7 +148,7 @@ final class PushInboxTests: XCTestCase {
         inbox.open(run)
         XCTAssertEqual(routed, [])
 
-        inbox.ready { routed.append($0) }
+        inbox.ready { routed.append($0); return true }
         XCTAssertEqual(routed, [run])
     }
 
@@ -156,11 +156,42 @@ final class PushInboxTests: XCTestCase {
         let inbox = PushInbox()
         var routed: [URL] = []
 
-        inbox.ready { routed.append($0) }
+        inbox.ready { routed.append($0); return true }
         XCTAssertEqual(routed, [])
 
         inbox.open(run)
         inbox.open(other)
         XCTAssertEqual(routed, [run, other])
+    }
+
+    // The scene went while the process stayed: its route can't open the
+    // page, which waits for the next scene.
+    func testARouteWhoseSceneIsGoneKeepsTheTap() {
+        let inbox = PushInbox()
+        var routed: [URL] = []
+
+        inbox.ready { _ in false }
+        inbox.open(run)
+
+        inbox.ready { routed.append($0); return true }
+        XCTAssertEqual(routed, [run])
+
+        // Delivered once only.
+        inbox.ready { routed.append($0); return true }
+        XCTAssertEqual(routed, [run])
+    }
+
+    func testAfterADisconnectATapWaitsForTheNextScene() {
+        let inbox = PushInbox()
+        var first: [URL] = []
+        var second: [URL] = []
+
+        inbox.ready { first.append($0); return true }
+        inbox.disconnect()
+        inbox.open(run)
+        XCTAssertEqual(first, [])
+
+        inbox.ready { second.append($0); return true }
+        XCTAssertEqual(second, [run])
     }
 }

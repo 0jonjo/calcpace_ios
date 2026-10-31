@@ -34,8 +34,17 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // home page. The tap that launched the app may have come before this
         // point, and waited for it (PushInbox).
         PushInbox.shared.ready { [weak self] url in
-            self?.navigator.route(url)
+            guard let self else { return false }
+            self.navigator.route(url)
+            return true
         }
+    }
+
+    // iOS may let the scene go while the process stays (HealthKit's
+    // background delivery keeps it up): a tap from now on waits for the next
+    // scene's Navigator instead of reaching this one.
+    func sceneDidDisconnect(_ scene: UIScene) {
+        PushInbox.shared.disconnect()
     }
 
     // Each time the app comes to the front: what Apple Health got since,
