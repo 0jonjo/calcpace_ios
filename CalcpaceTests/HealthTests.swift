@@ -109,6 +109,24 @@ final class WorkoutMapperTests: XCTestCase {
         XCTAssertEqual(WorkoutMapper.wire(facts(elevation: 42.5))?.elevationGainM, 42.5)
         XCTAssertEqual(WorkoutMapper.wire(facts(device: String(repeating: "x", count: 150)))?.device?.count, 100)
     }
+
+    func testDistanceSavedApartCountsWhereItsMiddleFalls() {
+        let start = Date(timeIntervalSince1970: 1_793_000_000)
+        let end = start.addingTimeInterval(1800)
+        func sample(_ from: Double, _ to: Double, _ meters: Double) -> WorkoutMapper.DistanceSample {
+            WorkoutMapper.DistanceSample(start: start.addingTimeInterval(from), end: start.addingTimeInterval(to), meters: meters)
+        }
+        // One sample over exactly the workout's time.
+        XCTAssertEqual(WorkoutMapper.meters([sample(0, 1800, 4000)], from: start, to: end), 4000)
+        // At the seams with the workouts before and after: once, in the one
+        // holding its middle.
+        XCTAssertEqual(WorkoutMapper.meters([sample(-0.4, 0.6, 3), sample(1799.6, 1800.4, 3), sample(1799.4, 1800.8, 3)], from: start, to: end), 6)
+        XCTAssertEqual(WorkoutMapper.meters([sample(-0.8, 0.2, 3), sample(1800, 1800.8, 3)], from: start, to: end), nil)
+        XCTAssertEqual(WorkoutMapper.meters([sample(0, 600, 1000), sample(600, 1200, 1000), sample(1200, 1800, 1000)], from: start, to: end), 3000)
+        XCTAssertNil(WorkoutMapper.meters([], from: start, to: end))
+        XCTAssertNil(WorkoutMapper.meters([sample(0, 1800, 0), sample(0, 1800, .nan), sample(10, 5, 100)], from: start, to: end))
+        XCTAssertNil(WorkoutMapper.meters([sample(0, 1800, 4000)], from: end, to: start))
+    }
 }
 
 final class HealthRouteTests: XCTestCase {

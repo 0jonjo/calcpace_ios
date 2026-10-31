@@ -93,6 +93,27 @@ enum WorkoutMapper {
         )
     }
 
+    /// A distance sample its app saved apart from the workout.
+    struct DistanceSample {
+        let start: Date
+        let end: Date
+        let meters: Double
+    }
+
+    /// The samples of a workout's app over its time, when none were tied to
+    /// it: each counted where its middle falls, so a sample at the seam of
+    /// two back-to-back workouts counts once, and one saved over exactly the
+    /// workout's time counts (HealthKit compares dates finer than they read
+    /// back, so a strict window of that time leaves it out). Nil for none.
+    static func meters(_ samples: [DistanceSample], from start: Date, to end: Date) -> Double? {
+        guard end >= start else { return nil }
+        let total = samples
+            .filter { $0.meters.isFinite && $0.meters > 0 && $0.end >= $0.start }
+            .filter { (start ... end).contains($0.start.addingTimeInterval($0.end.timeIntervalSince($0.start) / 2)) }
+            .reduce(0) { $0 + $1.meters }
+        return total > 0 ? total : nil
+    }
+
     /// How a workout is named on the wire, in "sessions" and in "deleted"
     /// alike: the server matches the two by this exact string.
     static func id(_ uuid: UUID) -> String {

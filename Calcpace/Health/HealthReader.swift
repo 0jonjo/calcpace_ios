@@ -142,14 +142,21 @@ final class HealthReader {
         if let tied = await sum(of: Self.distanceType, matching: HKQuery.predicateForObjects(from: workout)), tied > 0 {
             return tied
         }
-        // A second of slack either side: a sample saved over exactly the
-        // workout's time falls outside a window of exactly that time
-        // (HealthKit compares finer than the dates read back).
-        let window = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            HKQuery.predicateForSamples(withStart: workout.startDate.addingTimeInterval(-1), end: workout.endDate.addingTimeInterval(1), options: [.strictStartDate, .strictEndDate]),
+        let overlapping = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            HKQuery.predicateForSamples(withStart: workout.startDate, end: workout.endDate, options: []),
             HKQuery.predicateForObjects(from: workout.sourceRevision.source)
         ])
-        return await sum(of: Self.distanceType, matching: window)
+        let samples = await quantitySamples(of: Self.distanceType, matching: overlapping)
+        return WorkoutMapper.meters(samples.map { .init(start: $0.startDate, end: $0.endDate, meters: $0.quantity.doubleValue(for: .meter())) }, from: workout.startDate, to: workout.endDate)
+    }
+
+    private func quantitySamples(of type: HKQuantityType, matching predicate: NSPredicate) async -> [HKQuantitySample] {
+        await withCheckedContinuation { continuation in
+            let query = HKSampleQuery(sampleType: type, predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: nil) { _, samples, _ in
+                continuation.resume(returning: samples as? [HKQuantitySample] ?? [])
+            }
+            store.execute(query)
+        }
     }
 
     private func sum(of type: HKQuantityType, matching predicate: NSPredicate) async -> Double? {
