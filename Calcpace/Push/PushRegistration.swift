@@ -17,7 +17,7 @@ import UIKit
 final class PushRegistration {
     static let shared = PushRegistration()
 
-    static let defaultTimeout: TimeInterval = 10
+    nonisolated static let defaultTimeout: TimeInterval = 10
 
     private let register: @MainActor () -> Void
     private let timeout: TimeInterval
