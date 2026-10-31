@@ -45,10 +45,13 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
             await HealthSync.shared.resume()
         }
 
-        // Order matters: the first handler that matches decides. The runs
-        // list's CSV export must be caught before in-app navigation claims
-        // every calcpace.app URL. The other three are Hotwire's defaults.
+        // Order matters: the first handler that matches decides. The sign-in
+        // hand-off's paths are guarded before anything else can take them
+        // (AppAuthRouteDecisionHandler), and the runs list's CSV export must
+        // be caught before in-app navigation claims every calcpace.app URL.
+        // The other three are Hotwire's defaults.
         Hotwire.registerRouteDecisionHandlers([
+            AppAuthRouteDecisionHandler(),
             CsvExportRouteDecisionHandler(),
             AppNavigationRouteDecisionHandler(),
             SafariViewControllerRouteDecisionHandler(),

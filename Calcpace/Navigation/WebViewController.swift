@@ -35,9 +35,12 @@ final class WebViewController: HotwireWebViewController {
         navigationController.setNavigationBarHidden(hidesNavigationBar, animated: true)
     }
 
+    // Every visit that renders, where the page landed, redirects followed:
+    // how a sign-in's redeem went (AppAuth).
     override func visitableDidRender() {
         super.visitableDidRender()
         navigationItem.title = ScreenTitle.short(visitableView.webView?.title)
+        AppAuth.shared.visitCompleted(currentVisitableURL)
     }
 
     private var hidesNavigationBar: Bool {

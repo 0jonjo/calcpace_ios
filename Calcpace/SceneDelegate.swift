@@ -38,7 +38,33 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             self.navigator.route(url)
             return true
         }
+
+        // A link from outside that launched the app opens on top of the
+        // home page too. URLs on the app's own scheme (connectionOptions'
+        // urlContexts) are never read: see scene(_:openURLContexts:).
+        if let location = connectionOptions.userActivities.lazy.compactMap({ Self.outsideLocation($0) }).first {
+            navigator.route(location)
+        }
     }
+
+    // A link from outside with the app running: a calcpace.app page handed
+    // over by iOS (a universal link, once the site's
+    // apple-app-site-association names the app). Ordinary pages only
+    // (IncomingLink).
+    func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
+#if DEBUG
+        if HealthHarness.isOn { return }
+#endif
+        guard let location = Self.outsideLocation(userActivity) else { return }
+        navigator.route(location)
+    }
+
+    // The app's own scheme, app.calcpace.ios, isn't registered: a sign-in
+    // comes back through its web authentication session (AppAuthBrowser),
+    // never this way. Should iOS ever deliver one anyway, from another app
+    // or a link, it is dropped without a look: a ticket from outside is
+    // someone else's.
+    func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {}
 
     // iOS may let the scene go while the process stays (HealthKit's
     // background delivery keeps it up): a tap from now on waits for the next
@@ -54,5 +80,10 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         if HealthHarness.isOn { return }
 #endif
         Task { await HealthSync.shared.run() }
+    }
+
+    private static func outsideLocation(_ activity: NSUserActivity) -> URL? {
+        guard activity.activityType == NSUserActivityTypeBrowsingWeb, let url = activity.webpageURL else { return nil }
+        return IncomingLink.location(forOutsideLink: url, rootURL: AppDelegate.rootURL)
     }
 }
