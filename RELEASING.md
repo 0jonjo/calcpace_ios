@@ -6,7 +6,9 @@ The whole day-of-account sequence (APNs key, Sign in with Apple key, email domai
 
 ## Once, when the account exists
 
-1. **App ID.** In Certificates, Identifiers & Profiles, register `app.calcpace.ios` with **HealthKit**, **Push Notifications** and **Sign in with Apple** turned on. Do it before step 5: the entitlements are already in `project.yml`, and a profile made without a capability fails to sign.
+The app icon (A5) has to be in the project before the first upload: App Store Connect rejects a build without one.
+
+1. **App ID.** In Certificates, Identifiers & Profiles, register `app.calcpace.ios` with **HealthKit**, **Push Notifications** and **Sign in with Apple** turned on. Do it before step 6: the entitlements are in `project.yml`, and a profile made without a capability fails to sign.
 2. **App record.** In App Store Connect, create the app "Calcpace" with that bundle id.
 3. **API key.** App Store Connect → Users and Access → Integrations → App Store Connect API: a key with the **Admin** role (only Admin can create a distribution certificate). Keep the `.p8`; Apple lets you download it once.
 4. **Certificates repository.** Create the private repository `0jonjo/calcpace_ios_certs` with a README on `main`. Make a fine-grained token with access to that repository only, Contents read and write.

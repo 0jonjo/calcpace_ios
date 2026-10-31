@@ -17,8 +17,8 @@ platform :ios do
   lane :certs do
     setup_ci if ENV["CI"]
     api_key
-    # Readonly comes from the Matchfile (CERTS_CREATE).
-    match
+    # CERTS_CREATE rather than MATCH_READONLY, which setup_ci overwrites.
+    match(readonly: ENV["CERTS_CREATE"] != "true")
   end
 
   desc "Build the app and upload it to TestFlight"
