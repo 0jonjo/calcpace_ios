@@ -142,8 +142,11 @@ final class HealthReader {
         if let tied = await sum(of: Self.distanceType, matching: HKQuery.predicateForObjects(from: workout)), tied > 0 {
             return tied
         }
+        // A second of slack either side: a sample saved over exactly the
+        // workout's time falls outside a window of exactly that time
+        // (HealthKit compares finer than the dates read back).
         let window = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            HKQuery.predicateForSamples(withStart: workout.startDate, end: workout.endDate, options: [.strictStartDate, .strictEndDate]),
+            HKQuery.predicateForSamples(withStart: workout.startDate.addingTimeInterval(-1), end: workout.endDate.addingTimeInterval(1), options: [.strictStartDate, .strictEndDate]),
             HKQuery.predicateForObjects(from: workout.sourceRevision.source)
         ])
         return await sum(of: Self.distanceType, matching: window)
