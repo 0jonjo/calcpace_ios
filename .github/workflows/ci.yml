@@ -96,9 +96,32 @@ jobs:
       # The push relay: PushTests leaves an APNs payload in PUSH_DIR (handed
       # to the test runner through TEST_RUNNER_PUSH_DIR) and the relay
       # delivers it with simctl, which nothing inside the simulator can run.
+      #
+      # The demo account (DemoAccountTests): on a push to main or a run by
+      # hand, never a pull request's, its secrets go into a file outside
+      # artifacts/, read by the test runner (TEST_RUNNER_DEMO_ACCOUNT names
+      # it) and deleted after. Not as the runner's environment, which the
+      # result bundle, a public artifact, may keep; the test pastes them
+      # rather than typing them for the same reason. Without both secrets
+      # there is no file and the test skips. One sign-in per phone and run,
+      # each phone on its own runner: well under the site's limits (5 in
+      # 20 s, 10 in 3 min, per address).
       - name: Test, recording the simulator
+        env:
+          DEMO_EMAIL: ${{ github.event_name != 'pull_request' && secrets.DEMO_EMAIL || '' }}
+          DEMO_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.DEMO_PASSWORD || '' }}
         run: |
           mkdir -p artifacts
+          demo_account=""
+          if [ -n "$DEMO_EMAIL" ] && [ -n "$DEMO_PASSWORD" ]; then
+            demo_account="$RUNNER_TEMP/demo/account.json"
+            mkdir -p -m 700 "$RUNNER_TEMP/demo"
+            ( umask 077; jq -n '{email: env.DEMO_EMAIL, password: env.DEMO_PASSWORD}' > "$demo_account" )
+            echo "demo account: from the secrets"
+          else
+            echo "demo account: none, DemoAccountTests skips"
+          fi
+          unset DEMO_EMAIL DEMO_PASSWORD
           push_dir="$RUNNER_TEMP/push"
           mkdir -p "$push_dir"
           (
@@ -119,7 +142,7 @@ jobs:
             sleep 1
           done
           set +e
-          TEST_RUNNER_PUSH_DIR="$push_dir" xcodebuild test-without-building \
+          TEST_RUNNER_PUSH_DIR="$push_dir" TEST_RUNNER_DEMO_ACCOUNT="$demo_account" xcodebuild test-without-building \
             -project Calcpace.xcodeproj \
             -scheme Calcpace \
             -destination "id=$SIMULATOR" \
@@ -133,6 +156,7 @@ jobs:
               esac
             done
           status=${PIPESTATUS[0]}
+          [ -z "$demo_account" ] || rm -f "$demo_account"
           # The relay's simctl, if one is in flight, then the relay.
           pkill -P "$relay" 2>/dev/null || true
           kill "$relay" 2>/dev/null || true
