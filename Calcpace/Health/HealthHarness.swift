@@ -94,6 +94,32 @@ enum HealthHarness {
         try await store.save(sample)
     }
 
+    /// Debug: how each way of asking sees the distance saved after the
+    /// workout. "all/window/strict/source/stats" counts and the start offset.
+    static func probeDistance(of workout: HKWorkout, in store: HKHealthStore) async -> String {
+        func samples(_ predicate: NSPredicate?) async -> [HKQuantitySample] {
+            await withCheckedContinuation { continuation in
+                store.execute(HKSampleQuery(sampleType: HealthReader.distanceType, predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: nil) { _, found, error in
+                    continuation.resume(returning: error == nil ? (found as? [HKQuantitySample] ?? []) : [])
+                })
+            }
+        }
+        let all = await samples(nil)
+        let window = await samples(HKQuery.predicateForSamples(withStart: workout.startDate, end: workout.endDate, options: []))
+        let strict = await samples(HKQuery.predicateForSamples(withStart: workout.startDate, end: workout.endDate, options: [.strictStartDate, .strictEndDate]))
+        let source = await samples(HKQuery.predicateForObjects(from: workout.sourceRevision.source))
+        let stats: String = await withCheckedContinuation { continuation in
+            let predicate = HKQuery.predicateForSamples(withStart: workout.startDate, end: workout.endDate, options: [.strictStartDate, .strictEndDate])
+            store.execute(HKStatisticsQuery(quantityType: HealthReader.distanceType, quantitySamplePredicate: predicate, options: .cumulativeSum) { _, result, error in
+                continuation.resume(returning: error.map { "err:\(($0 as NSError).code)" } ?? "\(Int(result?.sumQuantity()?.doubleValue(for: .meter()) ?? -1))")
+            })
+        }
+        let late = all.max { $0.startDate < $1.startDate }
+        let offset = late.map { String(format: "%.6f/%.6f", $0.startDate.timeIntervalSince(workout.startDate), $0.endDate.timeIntervalSince(workout.endDate)) } ?? "-"
+        let statsSum = workout.statistics(for: HealthReader.distanceType)?.sumQuantity()?.doubleValue(for: .meter())
+        return "\(all.count)/\(window.count)/\(strict.count)/\(source.count)/\(stats)/off=\(offset)/wstat=\(statsSum.map { String(Int($0)) } ?? "nil")/total=\(workout.totalDistance.map { String(Int($0.doubleValue(for: .meter()))) } ?? "nil")"
+    }
+
     enum HarnessError: Error {
         case notSaved
     }
@@ -251,7 +277,11 @@ final class HealthHarnessViewController: UIViewController {
             try await HealthHarness.addDistance(to: workouts[HealthHarness.lateDistance], in: store)
             let reread = try await HealthReader().workouts(ids: [workouts[HealthHarness.lateDistance].uuid])
             var rereadDistance = -2.0
-            if let workout = reread.first { rereadDistance = await HealthReader().facts(workout).distanceM ?? -1 }
+            var probe = "none"
+            if let workout = reread.first {
+                rereadDistance = await HealthReader().facts(workout).distanceM ?? -1
+                probe = await HealthHarness.probeDistance(of: workout, in: store)
+            }
             try await HealthHarness.addRoute(to: workouts[HealthHarness.lateRoute], in: store)
             _ = await sync.run()
             let later = FakeHealthServer.sessions.dropFirst(before)
@@ -294,6 +324,7 @@ final class HealthHarnessViewController: UIViewController {
                 "later=\(laterIds.count)",
                 "waiting=\(waiting)",
                 "reread=\(Int(rereadDistance))",
+                "probe=\(probe)",
                 "quiet=\(quiet)",
                 "deleted=\(deletedSent)",
                 "unlinked=\(unlinked)",
