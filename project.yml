@@ -68,6 +68,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.calcpace.ios
         TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
 
   CalcpaceTests:
     type: bundle.unit-test
