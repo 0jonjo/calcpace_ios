@@ -28,7 +28,8 @@ final class PushTests: XCTestCase {
     }
 
     // The app not running: the tap launches it, and the page waits for the
-    // Navigator to start before it opens.
+    // Navigator to start before it opens, on top of the home page: Back
+    // leads there.
     func testATapThatLaunchesTheAppOpensThePage() throws {
         let relay = try relayDirectory()
         launch().terminate()
@@ -38,7 +39,10 @@ final class PushTests: XCTestCase {
 
         let app = XCUIApplication()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 30), "the tap did not open the app")
-        assertOnNews(app)
+        assertOnNews(app).tap()
+        assertOnHome(app)
+        XCTAssertFalse(app.navigationBars.firstMatch.exists, "the bar stayed on the home page after Back")
+        attachScreenshot(of: app, named: "push-back-home")
     }
 
     private func relayDirectory() throws -> URL {
@@ -60,9 +64,14 @@ final class PushTests: XCTestCase {
             allow.tap()
         }
 
+        assertOnHome(app)
+        return app
+    }
+
+    // The home page's quick calculator: its fields are the first thing it draws.
+    private func assertOnHome(_ app: XCUIApplication) {
         XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 30), "no web view")
         XCTAssertTrue(app.webViews.firstMatch.textFields.firstMatch.waitForExistence(timeout: 60), "calcpace.app did not load")
-        return app
     }
 
     // The server's payload, with a body of its own to find the banner by:
@@ -91,13 +100,25 @@ final class PushTests: XCTestCase {
         banner.tap()
     }
 
-    private func assertOnNews(_ app: XCUIApplication) {
-        let back = app.navigationBars.buttons.firstMatch
-        XCTAssertTrue(back.waitForExistence(timeout: 60), "the page did not open under a Back button")
-        let title = app.navigationBars.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "News")).firstMatch
+    // The news page under the app's bar, with Back: returns Back.
+    @discardableResult
+    private func assertOnNews(_ app: XCUIApplication) -> XCUIElement {
+        let bar = app.navigationBars.firstMatch
+        let title = bar.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "News")).firstMatch
         XCTAssertTrue(title.waitForExistence(timeout: 60), "the news page did not open")
+
+        // With backButtonDisplayMode .minimal, Back is an arrow with no
+        // title. UIKit names it "BackButton" and labels it "Back"; the bar's
+        // buttons go to the log, should that ever change.
+        let buttons = bar.buttons.allElementsBoundByIndex.map { "identifier=\($0.identifier) label=\($0.label)" }
+        print("navigation bar buttons: \(buttons)")
+        add(XCTAttachment(string: buttons.joined(separator: "\n")))
+        let back = bar.buttons.matching(NSPredicate(format: "identifier == 'BackButton' OR label == 'Back'")).firstMatch
+        XCTAssertTrue(back.waitForExistence(timeout: 10), "no Back button: \(buttons)")
+
         Thread.sleep(forTimeInterval: 2)
         attachScreenshot(of: app, named: "push-opened")
+        return back
     }
 
     private func attachScreenshot(of app: XCUIApplication, named name: String) {

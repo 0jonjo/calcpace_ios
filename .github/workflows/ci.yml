@@ -133,7 +133,10 @@ jobs:
               esac
             done
           status=${PIPESTATUS[0]}
-          kill "$relay" 2>/dev/null
+          # The relay's simctl, if one is in flight, then the relay.
+          pkill -P "$relay" 2>/dev/null || true
+          kill "$relay" 2>/dev/null || true
+          wait "$relay" 2>/dev/null || true
           # SIGINT lets simctl finish the file; a recorder that ignores it
           # must not hold the job until the timeout.
           kill -INT "$recorder" 2>/dev/null
