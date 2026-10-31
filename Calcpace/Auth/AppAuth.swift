@@ -1,6 +1,8 @@
 import Foundation
 
-/// Signing in with Google or Strava from inside the app.
+/// Signing in with Google or Strava from inside the app. Sign in with Apple
+/// (`AppleSignIn`) starts with `beginApple()` instead of steps 1 to 3 and
+/// shares step 4.
 ///
 /// Google refuses OAuth inside a WebView, and the sign-in browser keeps its
 /// own cookies, so the sign-in runs in an ASWebAuthenticationSession and is
@@ -79,16 +81,19 @@ final class AppAuth {
         ]
         guard let start = components?.url else { return nil }
 
-        // A new sign-in: whatever an earlier one left half done is over.
-        expectedRedeem = nil
-        redeemInFlight = false
-        // In UserDefaults only because it is the simplest store: the
-        // session, and with it the callback, lives in this process
-        // (AppAuthBrowser), so a relaunched app never gets to use it. The
-        // TTL, a good redeem or the next sign-in clears it.
-        defaults.set(verifier, forKey: Self.verifierKey)
-        defaults.set(now().timeIntervalSince1970, forKey: Self.startedAtKey)
+        keep(verifier)
         return start
+    }
+
+    /// Sign in with Apple's start (`AppleSignIn`): a fresh verifier kept as
+    /// for the other two, and its challenge, which goes to Apple as the
+    /// request's nonce and to the site with the identity token. The site
+    /// checks the token's nonce against it and binds the ticket to it, so
+    /// the rest (`redeemLocation`) is the same.
+    func beginApple() -> String? {
+        guard let verifier = Pkce.newVerifier() else { return nil }
+        keep(verifier)
+        return Pkce.challenge(for: verifier)
     }
 
     /// The ticket in the site's callback, or nil for anything that isn't
@@ -159,6 +164,18 @@ final class AppAuth {
     }
 
     // MARK: Private
+
+    private func keep(_ verifier: String) {
+        // A new sign-in: whatever an earlier one left half done is over.
+        expectedRedeem = nil
+        redeemInFlight = false
+        // In UserDefaults only because it is the simplest store: the
+        // sign-in, and with it the ticket, lives in this process
+        // (AppAuthBrowser, AppleSignIn), so a relaunched app never gets to
+        // use it. The TTL, a good redeem or the next sign-in clears it.
+        defaults.set(verifier, forKey: Self.verifierKey)
+        defaults.set(now().timeIntervalSince1970, forKey: Self.startedAtKey)
+    }
 
     private func freshVerifier() -> String? {
         let startedAt = defaults.double(forKey: Self.startedAtKey)

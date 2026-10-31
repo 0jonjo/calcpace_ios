@@ -21,7 +21,9 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         // card to the share sheet, "apple-health" links Apple Health, "push"
         // turns on the "your run is in" notification. The user agent lists
         // them, so the site only talks to components this build has.
-        Hotwire.registerBridgeComponents([ShareImageComponent.self, AppleHealthComponent.self, PushComponent.self])
+        // "apple-sign-in" is only listed: it tells the site this build has
+        // Sign in with Apple, so it may show the social sign-in buttons.
+        Hotwire.registerBridgeComponents([ShareImageComponent.self, AppleHealthComponent.self, PushComponent.self, AppleSignInComponent.self])
 
         // Before launch finishes, or a tap on a notification that launched
         // the app is never delivered.
