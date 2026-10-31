@@ -108,12 +108,14 @@ final class PushTests: XCTestCase {
         XCTAssertTrue(title.waitForExistence(timeout: 60), "the news page did not open")
 
         // With backButtonDisplayMode .minimal, Back is an arrow with no
-        // title. UIKit names it "BackButton" and labels it "Back"; the bar's
-        // buttons go to the log, should that ever change.
+        // title. UIKit's identifier for it is "BackButton"; its label is the
+        // previous page's title, or "Back" when that page had none yet (the
+        // home still loading on a cold start). The bar's buttons go to the
+        // log, should that ever change.
         let buttons = bar.buttons.allElementsBoundByIndex.map { "identifier=\($0.identifier) label=\($0.label)" }
         print("navigation bar buttons: \(buttons)")
         add(XCTAttachment(string: buttons.joined(separator: "\n")))
-        let back = bar.buttons.matching(NSPredicate(format: "identifier == 'BackButton' OR label == 'Back'")).firstMatch
+        let back = bar.buttons.matching(NSPredicate(format: "identifier == 'BackButton'")).firstMatch
         XCTAssertTrue(back.waitForExistence(timeout: 10), "no Back button: \(buttons)")
 
         Thread.sleep(forTimeInterval: 2)
