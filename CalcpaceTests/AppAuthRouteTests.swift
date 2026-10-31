@@ -64,10 +64,31 @@ final class AppAuthRouteTests: XCTestCase {
         XCTAssertEqual(signIns, ["google", "strava"])
     }
 
+    func testTheAppleButtonStartsSignInWithApple() {
+        XCTAssertTrue(matches("https://calcpace.app/app_auth/apple"))
+        XCTAssertEqual(decide("https://calcpace.app/app_auth/apple"), .cancel)
+        XCTAssertEqual(decide("https://calcpace.app/pt-BR/app_auth/apple"), .cancel)
+        XCTAssertEqual(signIns, ["apple", "apple"])
+    }
+
+    func testTheFailedPageLoadsOnlyExactly() {
+        XCTAssertTrue(matches("https://calcpace.app/app_auth/failed"))
+        XCTAssertEqual(decide("https://calcpace.app/app_auth/failed"), .navigate)
+        XCTAssertEqual(decide(AppleSignInExchange.failedLocation(rootURL: root)), .navigate, "what AppleSignIn routes to")
+        for url in ["https://calcpace.app/app_auth/failed?ticket=\(ticket)", "https://calcpace.app/app_auth/failed#x",
+                    "https://calcpace.app/en/app_auth/failed", "https://calcpace.app//app_auth/failed", "https://calcpace.app/app_auth/failed/",
+                    "http://calcpace.app/app_auth/failed", "https://calcpace.app:8443/app_auth/failed"] {
+            XCTAssertTrue(matches(url), url)
+            XCTAssertEqual(decide(url), .cancel, url)
+        }
+        XCTAssertFalse(matches("https://evil.example/app_auth/failed"))
+        XCTAssertEqual(signIns, [])
+    }
+
     func testEverythingElseUnderAppAuthIsCancelled() {
         for url in ["https://calcpace.app/app_auth/start?provider=google&challenge=x", "https://calcpace.app/app_auth/callback?ticket=\(ticket)",
-                    "https://calcpace.app/app_auth/facebook", "https://calcpace.app//app_auth/google", "https://calcpace.app/x/..//app_auth/redeem",
-                    "http://calcpace.app/app_auth/google", "https://calcpace.app:8443/app_auth/google"] {
+                    "https://calcpace.app/app_auth/facebook", "https://calcpace.app//app_auth/google", "https://calcpace.app//app_auth/apple", "https://calcpace.app/x/..//app_auth/redeem",
+                    "http://calcpace.app/app_auth/google", "https://calcpace.app:8443/app_auth/google", "http://calcpace.app/app_auth/apple"] {
             XCTAssertTrue(matches(url), url)
             XCTAssertEqual(decide(url), .cancel, url)
         }

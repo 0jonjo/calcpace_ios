@@ -29,7 +29,8 @@ targets:
     # (HealthSync's background delivery). Push: the "your run is in"
     # notification, from APNs' development environment; the App Store
     # build's distribution profile turns it into production when the
-    # archive is signed (I0).
+    # archive is signed (I0). Sign in with Apple (AppleSignIn): inert
+    # until the App ID has the capability.
     entitlements:
       path: Support/Calcpace.entitlements
       properties:
@@ -37,6 +38,7 @@ targets:
         com.apple.developer.healthkit.access: []
         com.apple.developer.healthkit.background-delivery: true
         aps-environment: development
+        com.apple.developer.applesignin: [Default]
     info:
       path: Support/Info.plist
       properties:

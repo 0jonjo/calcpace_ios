@@ -33,18 +33,21 @@ enum AppAuthPaths {
 
     // \z, not $: the whole path, as Kotlin's matchEntire, with no room for a
     // trailing newline that "%0a" could decode into.
-    private static let providerPath = regex("^\(prefix)/app_auth/(google|strava)\\z")
+    private static let providerPath = regex("^\(prefix)/app_auth/(google|strava|apple)\\z")
     private static let redeemPath = regex("^\(prefix)/app_auth/redeem\\z")
     private static let callbackPath = regex("^\(prefix)/app_auth/callback\\z")
+    private static let failedPath = regex("^/app_auth/failed\\z")
     private static let providerStepPath = regex("^\(prefix)/auth(?:/.*)?\\z")
     private static let signInPath = regex("^\(prefix)/session(?:/new)?\\z")
-    private static let absoluteURL = regex("^([A-Za-z][A-Za-z0-9+.-]*)://([^/?#]*)([^?#]*)")
+    private static let absoluteURL = regex("^([A-Za-z][A-Za-z0-9+.-]*)://([^/?#]*)([^?#]*)(.*)\\z", options: .dotMatchesLineSeparators)
     private static let schemePrefix = regex("^([A-Za-z][A-Za-z0-9+.-]*):")
 
     private struct Parts {
         let host: String
         let rawPath: String
         let cleanPath: String
+        // The query and fragment, "?" or "#" included; empty when none.
+        let rest: String
     }
 
     /// True for any URL on `host` whose path, however spelled, touches
@@ -55,7 +58,8 @@ enum AppAuthPaths {
         return isAmbiguous(parts.rawPath) || parts.cleanPath.range(of: "app_auth", options: .caseInsensitive) != nil
     }
 
-    /// "google" or "strava" for the site's in-app sign-in buttons, with or without a locale.
+    /// "google", "strava" or "apple" for the site's in-app sign-in buttons,
+    /// with or without a locale.
     static func provider(of url: String) -> String? {
         parse(url).flatMap { firstGroup(providerPath, $0.rawPath) }
     }
@@ -66,6 +70,13 @@ enum AppAuthPaths {
 
     static func isCallback(_ url: String) -> Bool {
         parse(url).map { matches(callbackPath, $0.rawPath) } ?? false
+    }
+
+    /// Exactly /app_auth/failed, no locale, query or fragment: where the app
+    /// sends the WebView when Sign in with Apple didn't get a ticket
+    /// (`AppleSignIn`). The site shows its sign-in page with the error.
+    static func isFailed(_ url: String) -> Bool {
+        parse(url).map { matches(failedPath, $0.rawPath) && $0.rest.isEmpty } ?? false
     }
 
     /// /auth/… with or without a locale, however spelled.
@@ -118,7 +129,8 @@ enum AppAuthPaths {
         let text = normalize(url)
         guard let match = absoluteURL.firstMatch(in: text, range: NSRange(text.startIndex ..< text.endIndex, in: text)),
               let authorityRange = Range(match.range(at: 2), in: text),
-              let pathRange = Range(match.range(at: 3), in: text)
+              let pathRange = Range(match.range(at: 3), in: text),
+              let restRange = Range(match.range(at: 4), in: text)
         else { return nil }
 
         var authority = Substring(text[authorityRange])
@@ -133,7 +145,7 @@ enum AppAuthPaths {
         while host.hasSuffix(".") { host.removeLast() }
 
         let rawPath = text[pathRange].isEmpty ? "/" : String(text[pathRange])
-        return Parts(host: host, rawPath: rawPath, cleanPath: clean(rawPath))
+        return Parts(host: host, rawPath: rawPath, cleanPath: clean(rawPath), rest: String(text[restRange]))
     }
 
     // Decoded, repeated slashes collapsed, dot segments resolved: roughly
@@ -180,8 +192,8 @@ enum AppAuthPaths {
         }
     }
 
-    private static func regex(_ pattern: String) -> NSRegularExpression {
-        try! NSRegularExpression(pattern: pattern)
+    private static func regex(_ pattern: String, options: NSRegularExpression.Options = []) -> NSRegularExpression {
+        try! NSRegularExpression(pattern: pattern, options: options)
     }
 
     private static func matches(_ regex: NSRegularExpression, _ string: String) -> Bool {
