@@ -9,9 +9,14 @@ import UIKit
 /// - /app_auth/google and /app_auth/strava, the site's in-app sign-in
 ///   buttons, run the sign-in in a web authentication session instead
 ///   (`AppAuthBrowser`). See `AppAuth`.
+/// - /app_auth/apple, the iPhone's "Sign in with Apple" button, runs Apple's
+///   own sheet (`AppleSignIn`).
 /// - /app_auth/redeem loads only when `AppAuth` built that exact URL. A
 ///   redeem link anywhere else (a bio, a run name, a page the athlete was
 ///   sent to) would sign the WebView into someone else's account.
+/// - Exactly /app_auth/failed loads: the sign-in page with the site's error,
+///   where `AppleSignIn` sends a sign-in that got no ticket. It signs no one
+///   in, so it needs no more guarding than that.
 /// - Everything else there is refused.
 ///
 /// It matches on the host alone, as broadly as the in-app navigation handler
@@ -24,7 +29,7 @@ final class AppAuthRouteDecisionHandler: RouteDecisionHandler {
     private let signIn: (String, Navigating) -> Void
 
     /// `signIn` opens the provider's sign-in; the tests stand in for the browser.
-    init(auth: AppAuth = .shared, signIn: @escaping (String, Navigating) -> Void = AppAuthRouteDecisionHandler.openBrowser) {
+    init(auth: AppAuth = .shared, signIn: @escaping (String, Navigating) -> Void = AppAuthRouteDecisionHandler.openSignIn) {
         self.auth = auth
         self.signIn = signIn
     }
@@ -46,17 +51,28 @@ final class AppAuthRouteDecisionHandler: RouteDecisionHandler {
             return .navigate
         }
 
+        if AppAuthPaths.isFailed(location.absoluteString) {
+            return .navigate
+        }
+
         return .cancel
     }
 
-    static func openBrowser(_ provider: String, _ navigator: Navigating) {
-        Task { @MainActor in AppAuthBrowser.shared.signIn(with: provider, navigator: navigator) }
+    static func openSignIn(_ provider: String, _ navigator: Navigating) {
+        Task { @MainActor in
+            if provider == AppleSignIn.provider {
+                AppleSignIn.shared.signIn(navigator: navigator)
+            } else {
+                AppAuthBrowser.shared.signIn(with: provider, navigator: navigator)
+            }
+        }
     }
 }
 
 /// The web authentication session a sign-in runs in, one at a time: a tap
-/// while one is open is ignored. The session is held until it finishes (iOS
-/// tears it down if it is let go), and shares Safari's cookies
+/// while one is open, or while Sign in with Apple is under way, is ignored.
+/// The session is held until it finishes (iOS tears it down if it is let
+/// go), and shares Safari's cookies
 /// (prefersEphemeralWebBrowserSession off) so a password manager or a
 /// provider already signed in there helps; the site never hands over a
 /// session it finds there, and always shows the provider's account choice.
@@ -75,11 +91,24 @@ final class AppAuthBrowser: NSObject, ASWebAuthenticationPresentationContextProv
     private var anchor: UIWindow?
     private weak var navigator: Navigating?
 
+    private let auth: AppAuth
+    private let otherIsBusy: @MainActor () -> Bool
+
+    /// `otherIsBusy` is Sign in with Apple's; the tests stand in for it.
+    init(auth: AppAuth = .shared, otherIsBusy: @escaping @MainActor () -> Bool = { AppleSignIn.shared.isBusy }) {
+        self.auth = auth
+        self.otherIsBusy = otherIsBusy
+        super.init()
+    }
+
+    var isBusy: Bool { session != nil }
+
     func signIn(with provider: String, navigator: Navigating) {
-        // The sheet needs a window on screen to come up from.
-        guard session == nil,
+        // The sheet needs a window on screen to come up from. Another
+        // sign-in under way would have its verifier replaced by this one's.
+        guard session == nil, !otherIsBusy(),
               let window = navigator.rootViewController.viewIfLoaded?.window,
-              let start = AppAuth.shared.begin(provider: provider)
+              let start = auth.begin(provider: provider)
         else { return }
 
         attempt += 1
@@ -109,7 +138,7 @@ final class AppAuthBrowser: NSObject, ASWebAuthenticationPresentationContextProv
         anchor = nil
         self.navigator = nil
 
-        guard let ticket, let navigator, let redeem = AppAuth.shared.redeemLocation(ticket: ticket) else { return }
+        guard let ticket, let navigator, let redeem = auth.redeemLocation(ticket: ticket) else { return }
         navigator.route(redeem)
     }
 }

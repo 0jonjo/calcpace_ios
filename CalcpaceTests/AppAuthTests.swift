@@ -27,6 +27,10 @@ final class AppAuthPathsTests: XCTestCase {
         XCTAssertEqual(AppAuthPaths.provider(of: "\(site)/app_auth/google"), "google")
         XCTAssertEqual(AppAuthPaths.provider(of: "\(site)/pt-BR/app_auth/strava"), "strava")
         XCTAssertEqual(AppAuthPaths.provider(of: "\(site)/de/app_auth/google"), "google")
+        XCTAssertEqual(AppAuthPaths.provider(of: "\(site)/app_auth/apple"), "apple")
+        XCTAssertEqual(AppAuthPaths.provider(of: "\(site)/ja/app_auth/apple"), "apple")
+        XCTAssertNil(AppAuthPaths.provider(of: "\(site)/app_auth/apple/"))
+        XCTAssertNil(AppAuthPaths.provider(of: "\(site)/app_auth/Apple"))
         XCTAssertNil(AppAuthPaths.provider(of: "\(site)/app_auth/facebook"))
         XCTAssertNil(AppAuthPaths.provider(of: "\(site)/xx/app_auth/google"))
     }
@@ -39,6 +43,18 @@ final class AppAuthPathsTests: XCTestCase {
             XCTAssertFalse(AppAuthPaths.isRedeem(site + path), path)
         }
         XCTAssertFalse(AppAuthPaths.isCallback("\(site)//app_auth/callback?ticket=a"))
+    }
+
+    // Where the app sends a Sign in with Apple that got no ticket: the one
+    // spelling it builds, nothing that could carry anything more.
+    func testOnlyTheExactFailedPathCounts() {
+        XCTAssertTrue(AppAuthPaths.isFailed("\(site)/app_auth/failed"))
+        XCTAssertTrue(AppAuthPaths.isGuarded("\(site)/app_auth/failed", host: host))
+        for path in ["/app_auth/failed?", "/app_auth/failed?ticket=a", "/app_auth/failed#x", "/app_auth/failed/",
+                     "/pt-BR/app_auth/failed", "//app_auth/failed", "/./app_auth/failed", "/app_auth/%66ailed",
+                     "/APP_AUTH/failed", "/app_auth/failed%0a", "/app_auth/failedx", "/app_auth/redeem"] {
+            XCTAssertFalse(AppAuthPaths.isFailed(site + path), path)
+        }
     }
 
     // Rails collapses "//", the WebView resolves "/./" and "%2e", so every
@@ -191,6 +207,34 @@ final class AppAuthTests: XCTestCase {
         XCTAssertNil(auth.begin(provider: "facebook"))
         XCTAssertNil(auth.begin(provider: ""))
         XCTAssertNil(auth.begin(provider: "Google"))
+    }
+
+    func testAppleHasNoStartPage() {
+        XCTAssertNil(auth.begin(provider: "apple"))
+    }
+
+    // Sign in with Apple: the challenge is the nonce Apple signs into the
+    // token, and the redeem that follows reveals its verifier as usual.
+    func testBeginAppleKeepsAVerifierForTheRedeem() throws {
+        let challenge = try XCTUnwrap(auth.beginApple())
+        XCTAssertEqual(challenge.count, 43)
+        XCTAssertNil(challenge.range(of: "[^A-Za-z0-9_-]", options: .regularExpression))
+        let redeem = try XCTUnwrap(auth.redeemLocation(ticket: ticket))
+        XCTAssertEqual(Pkce.challenge(for: verifier(of: redeem)), challenge)
+    }
+
+    func testBeginAppleStartsOverLikeAnyOtherSignIn() throws {
+        XCTAssertNotNil(auth.begin(provider: "google"))
+        let redeem = try XCTUnwrap(auth.redeemLocation(ticket: ticket))
+        let challenge = try XCTUnwrap(auth.beginApple())
+        XCTAssertNotEqual(auth.beginApple(), challenge, "each gets its own")
+        XCTAssertFalse(auth.takeExpectedRedeem(redeem), "the last sign-in's redeem is forgotten")
+    }
+
+    func testBeginAppleExpiresLikeTheOthers() {
+        XCTAssertNotNil(auth.beginApple())
+        clock += 30 * 60 + 1
+        XCTAssertNil(auth.redeemLocation(ticket: ticket))
     }
 
     func testEachSignInGetsItsOwnVerifier() throws {
