@@ -24,6 +24,7 @@ open Calcpace.xcodeproj
 - The user agent starts with `Calcpace iOS/<version> (<build>);`, in the Android app's format. That lets the site tell the two apps apart in the browser (the `ios-app` class on `<html>`) without varying the edge-cached pages.
 - Routing follows a path configuration the site serves (`/configurations/ios_v1.json`), with a copy bundled for the first launch. The front page and the bottom tab bar's destinations open as roots, with the site's header and no navigation bar; every other screen is pushed under the native bar, with Back and the page's title, and the site hides its own header there.
 - The `share-image` bridge component hands a run's share card to the iOS share sheet.
+- The `push` bridge component turns on the "your run is in" notification from the home page and hands the page the APNs device token; a tap on the notification opens the run in the app.
 - Sign-in is email only for now. Google and Strava sign-in come back with Sign in with Apple, as App Store rule 4.8 requires.
 
 ## License
