@@ -58,6 +58,19 @@ final class PathConfigurationTests: XCTestCase {
             XCTAssertEqual(other.presentation, .default, locale)
         }
         XCTAssertEqual(configuration.properties(for: "/app_auth/redeemx").presentation, .default)
+
+        // A Sign in with Apple that got no ticket: the sign-in page with the
+        // site's error takes the place of the one the athlete tapped from,
+        // rather than stacking a second one on it. The app builds only this
+        // spelling (AppAuthPaths.isFailed).
+        let failed = configuration.properties(for: "/app_auth/failed")
+        XCTAssertEqual(failed.presentation, .replace)
+        XCTAssertFalse(failed.pullToRefreshEnabled)
+        XCTAssertFalse(failed.tabRoot)
+        XCTAssertEqual(configuration.properties(for: URL(string: "https://calcpace.app/app_auth/failed")!).presentation, .replace)
+        for path in ["/app_auth/failed?x=1", "/app_auth/failed/", "/pt-BR/app_auth/failed", "/app_auth/failedx"] {
+            XCTAssertEqual(configuration.properties(for: path).presentation, .default, path)
+        }
         XCTAssertTrue(configuration.properties(for: "/guides/app_auth/").pullToRefreshEnabled)
     }
 }

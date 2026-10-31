@@ -43,6 +43,15 @@
         "presentation": "replace_root",
         "pull_to_refresh_enabled": false
       }
+    },
+    {
+      "patterns": [
+        "^/app_auth/failed$"
+      ],
+      "properties": {
+        "presentation": "replace",
+        "pull_to_refresh_enabled": false
+      }
     }
   ]
 }

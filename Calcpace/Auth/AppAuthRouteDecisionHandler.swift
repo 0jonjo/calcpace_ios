@@ -91,14 +91,24 @@ final class AppAuthBrowser: NSObject, ASWebAuthenticationPresentationContextProv
     private var anchor: UIWindow?
     private weak var navigator: Navigating?
 
+    private let auth: AppAuth
+    private let otherIsBusy: @MainActor () -> Bool
+
+    /// `otherIsBusy` is Sign in with Apple's; the tests stand in for it.
+    init(auth: AppAuth = .shared, otherIsBusy: @escaping @MainActor () -> Bool = { AppleSignIn.shared.isBusy }) {
+        self.auth = auth
+        self.otherIsBusy = otherIsBusy
+        super.init()
+    }
+
     var isBusy: Bool { session != nil }
 
     func signIn(with provider: String, navigator: Navigating) {
         // The sheet needs a window on screen to come up from. Another
         // sign-in under way would have its verifier replaced by this one's.
-        guard session == nil, !AppleSignIn.shared.isBusy,
+        guard session == nil, !otherIsBusy(),
               let window = navigator.rootViewController.viewIfLoaded?.window,
-              let start = AppAuth.shared.begin(provider: provider)
+              let start = auth.begin(provider: provider)
         else { return }
 
         attempt += 1
@@ -128,7 +138,7 @@ final class AppAuthBrowser: NSObject, ASWebAuthenticationPresentationContextProv
         anchor = nil
         self.navigator = nil
 
-        guard let ticket, let navigator, let redeem = AppAuth.shared.redeemLocation(ticket: ticket) else { return }
+        guard let ticket, let navigator, let redeem = auth.redeemLocation(ticket: ticket) else { return }
         navigator.route(redeem)
     }
 }
