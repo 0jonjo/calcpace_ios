@@ -20,6 +20,15 @@ import UIKit
 final class AppAuthRouteDecisionHandler: RouteDecisionHandler {
     let name = "app-auth"
 
+    private let auth: AppAuth
+    private let signIn: (String, Navigating) -> Void
+
+    /// `signIn` opens the provider's sign-in; the tests stand in for the browser.
+    init(auth: AppAuth = .shared, signIn: @escaping (String, Navigating) -> Void = AppAuthRouteDecisionHandler.openBrowser) {
+        self.auth = auth
+        self.signIn = signIn
+    }
+
     func matches(proposal: VisitProposal, configuration: Navigator.Configuration) -> Bool {
         AppAuthPaths.isGuarded(proposal.url.absoluteString, host: configuration.startLocation.host)
     }
@@ -29,15 +38,19 @@ final class AppAuthRouteDecisionHandler: RouteDecisionHandler {
         guard IncomingLink.isSite(location, rootURL: configuration.startLocation) else { return .cancel }
 
         if let provider = AppAuthPaths.provider(of: location.absoluteString) {
-            Task { @MainActor in AppAuthBrowser.shared.signIn(with: provider, navigator: navigator) }
+            signIn(provider, navigator)
             return .cancel
         }
 
-        if AppAuthPaths.isRedeem(location.absoluteString) && AppAuth.shared.takeExpectedRedeem(location) {
+        if AppAuthPaths.isRedeem(location.absoluteString) && auth.takeExpectedRedeem(location) {
             return .navigate
         }
 
         return .cancel
+    }
+
+    static func openBrowser(_ provider: String, _ navigator: Navigating) {
+        Task { @MainActor in AppAuthBrowser.shared.signIn(with: provider, navigator: navigator) }
     }
 }
 

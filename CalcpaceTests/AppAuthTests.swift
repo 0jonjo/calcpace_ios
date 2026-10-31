@@ -63,6 +63,20 @@ final class AppAuthPathsTests: XCTestCase {
         XCTAssertTrue(AppAuthPaths.isGuarded("", host: host))
     }
 
+    // WebKit resolves dot segments before it decodes "%2F" or drops empty
+    // segments, and this cleanup doesn't: any path the two could read apart
+    // is guarded outright, app_auth in sight or not.
+    func testPathsThatCouldBeReadTwoWaysAreGuarded() {
+        for path in ["/x/..//app_auth/redeem", "/app_auth%2Fredeem", "/app_auth%2fredeem", "/a/%2e%2e/app_auth/redeem",
+                     "/app_auth/x%2F..%2Fredeem", "/x/%2E/app_auth/redeem", "/x/.%2e/app_auth/redeem", "/x/%2e./y",
+                     "/a/..", "/./", "/pt-BR//activities", "/a%5Cb", "/a%5cb", "/a/b/.", "//"] {
+            XCTAssertTrue(AppAuthPaths.isGuarded(site + path, host: host), path)
+        }
+        XCTAssertFalse(AppAuthPaths.isGuarded("\(site)/activities/", host: host))
+        XCTAssertFalse(AppAuthPaths.isGuarded("https://evil.example//app_auth/redeem", host: host))
+        XCTAssertFalse(AppAuthPaths.isGuarded("\(site)/a/...b/c..d/.e?x=//&y=%2F#..", host: host), "dots inside a segment, a query or a fragment are fine")
+    }
+
     // Failing closed must not swallow the site's mailto: and tel: links,
     // which belong to the system's mail and phone apps.
     func testOtherSchemesAreNotTheGuardsBusiness() {
@@ -253,11 +267,24 @@ final class AppAuthTests: XCTestCase {
         XCTAssertNil(auth.redeemLocation(ticket: ticket))
     }
 
-    // The session can outlive the app: a new process finds the verifier.
-    func testTheVerifierSurvivesTheApp() {
+    // A sign-in started over forgets the redeem the last one built and was
+    // waiting on.
+    func testANewSignInForgetsTheLastOnesRedeem() throws {
         XCTAssertNotNil(auth.begin(provider: "google"))
-        let relaunched = AppAuth(rootURL: root, defaults: defaults) { [unowned self] in self.clock }
-        XCTAssertNotNil(relaunched.redeemLocation(ticket: ticket))
+        let redeem = try XCTUnwrap(auth.redeemLocation(ticket: ticket))
+        XCTAssertNotNil(auth.begin(provider: "strava"))
+        XCTAssertFalse(auth.takeExpectedRedeem(redeem))
+
+        auth.visitCompleted(URL(string: "https://calcpace.app/")!)
+        XCTAssertNotNil(auth.redeemLocation(ticket: ticket), "nothing was in flight to judge")
+    }
+
+    func testAFailedVisitEndsTheRedeemAndKeepsTheVerifier() {
+        XCTAssertNotNil(auth.begin(provider: "google"))
+        XCTAssertNotNil(auth.redeemLocation(ticket: ticket))
+        auth.visitFailed()
+        auth.visitCompleted(URL(string: "https://calcpace.app/")!)
+        XCTAssertNotNil(auth.redeemLocation(ticket: ticket), "the landing after a failure isn't the redeem's")
     }
 
     func testTheExpectedRedeemIsTakenOnceAndExactly() throws {

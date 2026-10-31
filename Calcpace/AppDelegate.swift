@@ -45,18 +45,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
             await HealthSync.shared.resume()
         }
 
-        // Order matters: the first handler that matches decides. The sign-in
-        // hand-off's paths are guarded before anything else can take them
-        // (AppAuthRouteDecisionHandler), and the runs list's CSV export must
-        // be caught before in-app navigation claims every calcpace.app URL.
-        // The other three are Hotwire's defaults.
-        Hotwire.registerRouteDecisionHandlers([
-            AppAuthRouteDecisionHandler(),
-            CsvExportRouteDecisionHandler(),
-            AppNavigationRouteDecisionHandler(),
-            SafariViewControllerRouteDecisionHandler(),
-            SystemNavigationRouteDecisionHandler()
-        ])
+        Hotwire.registerRouteDecisionHandlers(Self.routeDecisionHandlers)
 
         // The bundled copy works offline and on first launch; the site's copy
         // (calcpace_web's ConfigurationsController#ios_v1), once fetched, wins
@@ -80,6 +69,21 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         Hotwire.config.debugLoggingEnabled = true
 #endif
         return true
+    }
+
+    // Order matters: the first handler that matches decides. The sign-in
+    // hand-off's paths are guarded before anything else can take them
+    // (AppAuthRouteDecisionHandler), and the runs list's CSV export must be
+    // caught before in-app navigation claims every calcpace.app URL. The
+    // other three are Hotwire's defaults.
+    nonisolated static var routeDecisionHandlers: [RouteDecisionHandler] {
+        [
+            AppAuthRouteDecisionHandler(),
+            CsvExportRouteDecisionHandler(),
+            AppNavigationRouteDecisionHandler(),
+            SafariViewControllerRouteDecisionHandler(),
+            SystemNavigationRouteDecisionHandler()
+        ]
     }
 
     // The APNs device token, or why there is none, for whoever asked

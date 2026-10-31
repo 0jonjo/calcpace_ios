@@ -5,9 +5,11 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     var window: UIWindow?
 
     // Made after AppDelegate has configured Hotwire (the user agent), since
-    // the Navigator builds its WebViews when it is created.
+    // the Navigator builds its WebViews when it is created. It holds its
+    // delegate weakly; the scene keeps this one.
     private lazy var navigator = Navigator(
-        configuration: .init(name: "main", startLocation: AppDelegate.rootURL)
+        configuration: .init(name: "main", startLocation: AppDelegate.rootURL),
+        delegate: self
     )
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
@@ -85,5 +87,17 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     private static func outsideLocation(_ activity: NSUserActivity) -> URL? {
         guard activity.activityType == NSUserActivityTypeBrowsingWeb, let url = activity.webpageURL else { return nil }
         return IncomingLink.location(forOutsideLink: url, rootURL: AppDelegate.rootURL)
+    }
+}
+
+extension SceneDelegate: NavigatorDelegate {
+    // A visit that failed (no network, an error status) tells a sign-in's
+    // redeem it got no answer (AppAuth). The error screen and its Retry are
+    // Hotwire's own, as its default delegate shows them.
+    func visitableDidFailRequest(_ visitable: Visitable, error: HotwireNativeError, retryHandler: RetryBlock?) {
+        AppAuth.shared.visitFailed()
+        if let errorPresenter = visitable as? ErrorPresenter {
+            errorPresenter.presentError(error, retryHandler: retryHandler)
+        }
     }
 }

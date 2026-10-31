@@ -20,6 +20,14 @@ import Foundation
 /// whitespace and C0 trimmed, tab/CR/LF dropped, "\" read as "/"), so the
 /// host and path seen here are the ones the WebView would request even if a
 /// raw string ever reached the router.
+///
+/// The cleanup is only roughly WebKit's: it decodes "%2F" before splitting
+/// and drops empty segments before resolving "..", where WebKit does
+/// neither. Rather than chase every difference, a site URL whose raw path
+/// has anything they could read apart (a dot segment however spelled, an
+/// empty segment, an encoded slash or backslash) is guarded outright. Turbo
+/// and WebKit never propose such a path for an ordinary page; it only comes
+/// from a raw link, such as one handed over from outside.
 enum AppAuthPaths {
     private static let prefix = "(?:/(?:\(SharePages.locales)))?"
 
@@ -39,11 +47,12 @@ enum AppAuthPaths {
         let cleanPath: String
     }
 
-    /// True for any URL on `host` whose path, however spelled, touches app_auth, and for anything unreadable.
+    /// True for any URL on `host` whose path, however spelled, touches
+    /// app_auth or could be read two ways, and for anything unreadable.
     static func isGuarded(_ url: String, host: String?) -> Bool {
         guard let parts = parse(url) else { return isWebOrUnknownScheme(url) }
-        guard let host else { return false }
-        return parts.host == host.lowercased() && parts.cleanPath.range(of: "app_auth", options: .caseInsensitive) != nil
+        guard let host, parts.host == host.lowercased() else { return false }
+        return isAmbiguous(parts.rawPath) || parts.cleanPath.range(of: "app_auth", options: .caseInsensitive) != nil
     }
 
     /// "google" or "strava" for the site's in-app sign-in buttons, with or without a locale.
@@ -74,6 +83,18 @@ enum AppAuthPaths {
     }
 
     // MARK: Private
+
+    // A dot segment ("." or "..", any of their "%2e" spellings), an empty
+    // segment, or an encoded slash or backslash: where this cleanup and
+    // WebKit's may part ways. A raw backslash is already a slash here.
+    private static func isAmbiguous(_ rawPath: String) -> Bool {
+        let path = rawPath.lowercased()
+        if path.contains("//") || path.contains("%2f") || path.contains("%5c") || path.contains("\\") { return true }
+        return path.components(separatedBy: "/").contains { segment in
+            let dots = segment.replacingOccurrences(of: "%2e", with: ".")
+            return dots == "." || dots == ".."
+        }
+    }
 
     private static func isWebOrUnknownScheme(_ url: String) -> Bool {
         guard let scheme = firstGroup(schemePrefix, normalize(url))?.lowercased() else { return true }

@@ -79,8 +79,13 @@ final class AppAuth {
         ]
         guard let start = components?.url else { return nil }
 
-        // Kept on disk: the session can outlive the app, which iOS may end
-        // while the athlete is away in a password manager or their email.
+        // A new sign-in: whatever an earlier one left half done is over.
+        expectedRedeem = nil
+        redeemInFlight = false
+        // In UserDefaults only because it is the simplest store: the
+        // session, and with it the callback, lives in this process
+        // (AppAuthBrowser), so a relaunched app never gets to use it. The
+        // TTL, a good redeem or the next sign-in clears it.
         defaults.set(verifier, forKey: Self.verifierKey)
         defaults.set(now().timeIntervalSince1970, forKey: Self.startedAtKey)
         return start
@@ -139,16 +144,18 @@ final class AppAuth {
     /// redeem to the sign-in page and a good one anywhere else. Only a good
     /// one spends the verifier.
     ///
-    /// Unlike the Android app there is no visitFailed: a redeem that never
-    /// got an answer stays in flight, and the next visit that lands (the
-    /// error page's Retry, or wherever the athlete goes) is the one judged.
-    /// A verifier kept for nothing costs nothing; it expires, and the next
-    /// sign-in replaces it.
     func visitCompleted(_ location: URL) {
         guard redeemInFlight, let succeeded = AppAuthPaths.redeemSucceeded(location.absoluteString) else { return }
 
         redeemInFlight = false
         if succeeded { clear() }
+    }
+
+    /// A visit that failed (SceneDelegate's visitableDidFailRequest): a
+    /// redeem that never got an answer keeps the verifier, and the next
+    /// visit is not taken for its outcome.
+    func visitFailed() {
+        redeemInFlight = false
     }
 
     // MARK: Private

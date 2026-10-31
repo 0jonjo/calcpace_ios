@@ -40,4 +40,24 @@ final class PathConfigurationTests: XCTestCase {
             XCTAssertTrue(properties.animated, path)
         }
     }
+
+    // The sign-in hand-off, as in the Android app's configuration: nothing
+    // under app_auth is pulled to refresh, and the redeem replaces the whole
+    // stack, so Back after signing in doesn't return to the signed-out
+    // sign-in page, and a recreated WebView doesn't route a spent redeem.
+    func testTheSignInHandOff() {
+        for locale in ["", "/pt-BR", "/zh-TW"] {
+            let redeem = configuration.properties(for: locale + "/app_auth/redeem?ticket=a&verifier=b")
+            XCTAssertEqual(redeem.presentation, .replaceRoot, locale)
+            XCTAssertFalse(redeem.pullToRefreshEnabled, locale)
+            XCTAssertFalse(redeem.tabRoot, locale)
+            XCTAssertEqual(configuration.properties(for: locale + "/app_auth/redeem").presentation, .replaceRoot, locale)
+
+            let other = configuration.properties(for: locale + "/app_auth/google")
+            XCTAssertFalse(other.pullToRefreshEnabled, locale)
+            XCTAssertEqual(other.presentation, .default, locale)
+        }
+        XCTAssertEqual(configuration.properties(for: "/app_auth/redeemx").presentation, .default)
+        XCTAssertTrue(configuration.properties(for: "/guides/app_auth/").pullToRefreshEnabled)
+    }
 }

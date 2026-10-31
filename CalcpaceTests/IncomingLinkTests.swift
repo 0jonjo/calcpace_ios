@@ -50,6 +50,15 @@ final class IncomingLinkTests: XCTestCase {
         }
     }
 
+    // What WebKit would read as an app_auth path, or might: ignored.
+    func testPathsThatCouldBeReadTwoWaysAreIgnored() {
+        for path in ["/x/..//app_auth/redeem", "/app_auth%2Fredeem", "/a/%2e%2e/app_auth/redeem", "/app_auth/x%2F..%2Fredeem",
+                     "/x/..//app_auth/callback", "/pt-BR//race-calendar", "/a/../pt-BR"] {
+            XCTAssertEqual(classify("\(base)\(path)?ticket=\(ticket)&verifier=x"), .ignore, path)
+            XCTAssertNil(opens("\(base)\(path)?ticket=\(ticket)&verifier=x"), path)
+        }
+    }
+
     // No browser tab to hand them back to on an iPhone: they stay out of the
     // WebView.
     func testProviderStepsAreRecognisedButNotOpened() {

@@ -26,6 +26,23 @@
         "tab_root": true,
         "animated": false
       }
+    },
+    {
+      "patterns": [
+        "^(?:/(?:en|pt\\-BR|es|de|fr|ja|it|nl|ko|sv|pl|no|zh\\-TW|hu|cs|ru))?/app_auth/"
+      ],
+      "properties": {
+        "pull_to_refresh_enabled": false
+      }
+    },
+    {
+      "patterns": [
+        "^(?:/(?:en|pt\\-BR|es|de|fr|ja|it|nl|ko|sv|pl|no|zh\\-TW|hu|cs|ru))?/app_auth/redeem(?:\\?|$)"
+      ],
+      "properties": {
+        "presentation": "replace_root",
+        "pull_to_refresh_enabled": false
+      }
     }
   ]
 }
