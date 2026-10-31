@@ -107,10 +107,11 @@ final class DemoAccountTests: XCTestCase {
             let top = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: frame.midX, dy: max(frame.minY, 0) + 10))
             top.press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.98)))
         }
-        // On iOS 26 the sheet's elements stay in the tree after it closes:
-        // closed is the file's name off the screen and Export in reach again.
+        // On iOS 26 the sheet's ActivityListView stays in the tree after it
+        // closes, and even says it is hittable: closed is the file's name
+        // gone and Export in reach again.
         let export = control("Export", in: webView)
-        XCTAssertTrue(waitUntil(timeout: 15) { !self.onScreen(fileName) && !self.onScreen(sheet) && self.onScreen(export) },
+        XCTAssertTrue(waitUntil(timeout: 15) { !self.onScreen(fileName) && self.onScreen(export) },
                       "the share sheet did not close")
         XCTAssertTrue(text("My Activities", in: webView).waitForExistence(timeout: 15), "the runs list is gone after the share sheet")
     }
