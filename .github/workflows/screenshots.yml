@@ -1,0 +1,176 @@
+name: Store screenshots
+
+# The App Store screenshots (CalcpaceUITests/StoreScreenshotTests), in
+# English and Brazilian Portuguese, on the two iPhone sizes App Store
+# Connect names: the large Dynamic Island phone (6.9", 1320 x 2868) and the
+# medium one (6.3", 1206 x 2622). By hand only: never on a pull request,
+# which has no secrets, and not part of ci.yml.
+#
+# The PNGs are the artifact "store-screenshots": <size>/<language>/NN-name.png.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: screenshots
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  shoot:
+    runs-on: macos-15
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - size: "6.9"
+            names: "^iPhone [0-9]+ Pro Max$"
+          - size: "6.3"
+            names: "^iPhone [0-9]+ Pro$"
+    name: shoot ${{ matrix.size }}-inch
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+        with:
+          xcode-version: "26.3"
+
+      - name: Generate the Xcode project
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      # As in ci.yml: the newest phone whose name matches, on the runtime of
+      # the selected Xcode's simulator SDK, else the newest below it.
+      - name: Boot a simulator
+        run: |
+          sdk=$(xcrun --sdk iphonesimulator --show-sdk-version)
+          echo "Simulator SDK $sdk"
+          udid=$(xcrun simctl list devices available -j | jq -r --arg sdk "$sdk" --arg names "${{ matrix.names }}" '
+            def version: capture("iOS-(?<a>[0-9]+)-(?<b>[0-9]+)") | [(.a | tonumber), (.b | tonumber)];
+            ($sdk | split(".") | map(tonumber) | .[0:2]) as $max
+            | [.devices | to_entries[]
+               | select(.key | test("iOS-[0-9]+-[0-9]+"))
+               | select((.key | version) <= $max)
+               | . as $runtime
+               | .value[] | select(.name | test($names))
+               | {udid, name, v: ($runtime.key | version)}]
+            | sort_by(.v, .name) | last | .udid // empty')
+          [ -n "$udid" ] || { echo "no simulator matching ${{ matrix.names }} for iOS $sdk"; xcrun simctl list devices available; exit 1; }
+          xcrun simctl list devices | grep "$udid"
+          echo "SIMULATOR=$udid" >> "$GITHUB_ENV"
+          xcrun simctl boot "$udid"
+          xcrun simctl bootstatus "$udid" -b
+
+      - name: Build for testing
+        run: |
+          xcodebuild build-for-testing \
+            -project Calcpace.xcodeproj \
+            -scheme Calcpace \
+            -destination "id=$SIMULATOR" \
+            -derivedDataPath build
+
+      # Apple's own screenshots' bar: 9:41, full signal and battery, no
+      # carrier. Set again right before the run, after the build's minutes.
+      - name: Clean the status bar
+        run: |
+          xcrun simctl status_bar "$SIMULATOR" override \
+            --time "9:41" \
+            --dataNetwork wifi --wifiMode active --wifiBars 3 \
+            --cellularMode active --cellularBars 4 --operatorName "" \
+            --batteryState discharging --batteryLevel 100
+          xcrun simctl ui "$SIMULATOR" appearance light
+
+      # The demo account as in ci.yml: its secrets go into a file outside
+      # anything uploaded, read by the test runner (TEST_RUNNER_DEMO_ACCOUNT
+      # names it) and deleted however the step ends. The result bundle stays
+      # in RUNNER_TEMP and is never uploaded: only the shots it holds leave
+      # the runner (next step). Two sign-ins per phone, one per language,
+      # well under the site's limits (10 in 3 min per address).
+      - name: Shoot
+        env:
+          DEMO_EMAIL: ${{ secrets.DEMO_EMAIL }}
+          DEMO_PASSWORD: ${{ secrets.DEMO_PASSWORD }}
+        run: |
+          [ -n "$DEMO_EMAIL" ] && [ -n "$DEMO_PASSWORD" ] || { echo "::error::DEMO_EMAIL and DEMO_PASSWORD secrets are needed"; exit 1; }
+          demo_account="$RUNNER_TEMP/demo/account.json"
+          trap 'rm -f "$demo_account"' EXIT
+          trap 'exit 130' INT
+          trap 'exit 143' TERM
+          mkdir -p -m 700 "$RUNNER_TEMP/demo"
+          ( umask 077; jq -n '{email: env.DEMO_EMAIL, password: env.DEMO_PASSWORD}' > "$demo_account" )
+          unset DEMO_EMAIL DEMO_PASSWORD
+          TEST_RUNNER_STORE_SCREENSHOTS=1 TEST_RUNNER_DEMO_ACCOUNT="$demo_account" xcodebuild test-without-building \
+            -project Calcpace.xcodeproj \
+            -scheme Calcpace \
+            -destination "id=$SIMULATOR" \
+            -derivedDataPath build \
+            -only-testing:CalcpaceUITests/StoreScreenshotTests \
+            -resultBundlePath "$RUNNER_TEMP/Shots.xcresult"
+
+      # The attachments named "store-<language>-NN-name" become
+      # <size>/<language>/NN-name.png; "debug-" ones, from a failure after
+      # signing in, go to debug/. Nothing else leaves the bundle.
+      - name: Export the screenshots
+        if: always()
+        run: |
+          [ -d "$RUNNER_TEMP/Shots.xcresult" ] || exit 0
+          export_dir="$RUNNER_TEMP/attachments"
+          xcrun xcresulttool export attachments --path "$RUNNER_TEMP/Shots.xcresult" --output-path "$export_dir"
+          out="store-screenshots/${{ matrix.size }}"
+          mkdir -p "$out" debug
+          jq -r '.[].attachments[] | [.exportedFileName, .suggestedHumanReadableName] | @tsv' "$export_dir/manifest.json" |
+            while IFS=$'\t' read -r file name; do
+              base=${name%%_*}
+              base=${base%.*}
+              ext=${file##*.}
+              case "$base" in
+                store-*)
+                  rest=${base#store-}
+                  lang=${rest:0:5}
+                  mkdir -p "$out/$lang"
+                  cp "$export_dir/$file" "$out/$lang/${rest:6}.$ext"
+                  ;;
+                debug-*)
+                  cp "$export_dir/$file" "debug/$base.$ext"
+                  ;;
+              esac
+            done
+          rm -rf "$RUNNER_TEMP/Shots.xcresult" "$export_dir"
+          for png in "$out"/*/*.png; do
+            [ -f "$png" ] || continue
+            echo "$png $(sips -g pixelWidth -g pixelHeight -g hasAlpha "$png" | awk 'NR > 1 {printf "%s=%s ", $1, $2}')"
+          done
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: store-screenshots-${{ matrix.size }}
+          path: store-screenshots
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: debug-${{ matrix.size }}
+          path: debug
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # Both sizes in one artifact.
+  collect:
+    needs: shoot
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/upload-artifact/merge@v4
+        with:
+          name: store-screenshots
+          pattern: store-screenshots-*
+          delete-merged: true
+          retention-days: 30
