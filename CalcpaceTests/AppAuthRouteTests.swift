@@ -97,8 +97,20 @@ final class AppAuthRouteTests: XCTestCase {
 
     func testOtherHostsAndOrdinaryPagesAreNotItsBusiness() {
         for url in ["https://evil.example/app_auth/redeem?ticket=\(ticket)&verifier=x", "https://evil.example/app_auth/google",
-                    "https://calcpace.app/", "https://calcpace.app/pt-BR/activities", "https://calcpace.app/auth/google/callback"] {
+                    "https://calcpace.app/", "https://calcpace.app/pt-BR/activities", "https://calcpace.app/auth/google/callback",
+                    "https://calcpace.app/auth/apple/finish", "https://calcpace.app/pt-BR/auth/apple/finish"] {
             XCTAssertFalse(matches(url), url)
+        }
+    }
+
+    // A new Apple account's terms screen, where the redeem sends it: shown
+    // and submitted in the WebView, so it must reach in-app navigation.
+    func testTheAppleTermsScreenLoadsInTheWebView() {
+        for url in ["https://calcpace.app/auth/apple/finish", "https://calcpace.app/pt-BR/auth/apple/finish",
+                    "https://calcpace.app/auth/apple/finish?x=1"] {
+            let proposal = proposal(URL(string: url)!)
+            let first = AppDelegate.routeDecisionHandlers.first { $0.matches(proposal: proposal, configuration: configuration) }
+            XCTAssertEqual(first?.name, "app-navigation", url)
         }
     }
 
