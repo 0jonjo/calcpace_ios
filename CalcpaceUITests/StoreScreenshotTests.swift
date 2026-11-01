@@ -448,9 +448,10 @@ final class StoreScreenshotTests: XCTestCase {
         tap(select, "the \"\(selectLabel)\" filter", in: webView, file: file, line: line)
 
         let wheel = app.pickerWheels.firstMatch
+        // Not a static text: a line of the page that reads the same would do.
         let item = app.descendants(matching: .any)
             .matching(NSPredicate(format: "label == %@ AND elementType IN %@", option,
-                                  [XCUIElement.ElementType.menuItem, .button, .cell, .staticText].map { NSNumber(value: $0.rawValue) }))
+                                  [XCUIElement.ElementType.menuItem, .button, .cell].map { NSNumber(value: $0.rawValue) }))
             .firstMatch
         guard waitForAny([wheel, item], timeout: 10) != nil else {
             debug("no-select-menu")
