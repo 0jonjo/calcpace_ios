@@ -440,11 +440,12 @@ final class StoreScreenshotTests: XCTestCase {
     }
 
     // An option of one of the page's <select>s, by the select's aria-label:
-    // WebKit opens it as a menu on the iPhone, or as a wheel.
+    // WebKit opens it as a menu on the iPhone, or as a wheel. The select is
+    // an "Other" in the page's tree, its option the value.
     private func choose(_ option: String, in selectLabel: String, app: XCUIApplication,
                         file: StaticString = #filePath, line: UInt = #line) {
         let webView = app.webViews.firstMatch
-        let select = control(selectLabel, in: webView)
+        let select = text(selectLabel, in: webView)
         tap(select, "the \"\(selectLabel)\" filter", in: webView, file: file, line: line)
 
         let wheel = app.pickerWheels.firstMatch
