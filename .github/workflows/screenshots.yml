@@ -9,6 +9,8 @@ name: Store screenshots
 # The PNGs are the artifact "store-screenshots": <size>/<language>/NN-name.png.
 on:
   workflow_dispatch:
+  push: # tmp: verify #16 before main has the workflow; dropped after
+    branches: [fix/store-shots-navigation]
 
 concurrency:
   group: screenshots
