@@ -1,5 +1,5 @@
 /* The Apple Health permission sheet: why the app reads workouts (calcpace_web apple_health.card.body, its first and last sentences). */
-"NSHealthShareUsageDescription" = "Calcpace importiert die Läufe und Spaziergänge, die deine Apple Watch und deine Lauf-Apps (Strava, Nike, Garmin, adidas) in der Health App speichern. Wir lesen nur Uhrzeit, Distanz, Dauer, Anstieg und Herzfrequenz dieser Trainings.";
+"NSHealthShareUsageDescription" = "Calcpace importiert die Läufe und Spaziergänge, die deine Apple Watch und deine Lauf-Apps (Strava, Nike, Garmin, adidas) in der Health App speichern. Wir lesen nur Uhrzeit, Distanz, Dauer, Anstieg, Herzfrequenz und Strecke dieser Trainings.";
 
 /* Required by App Store validation next to the read text, although the app only reads (HealthReader). */
 "NSHealthUpdateUsageDescription" = "Calcpace speichert nichts in der Health App.";

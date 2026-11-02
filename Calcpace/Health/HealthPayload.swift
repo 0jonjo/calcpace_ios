@@ -15,9 +15,11 @@ struct WireSession: Encodable, Equatable {
     var hrAvg: Int? = nil
     var hrMax: Int? = nil
     var elevationGainM: Double? = nil
+    /// HealthRoute.wire: [epoch seconds, lat, lon] each.
+    var route: [WirePoint]? = nil
 
     enum CodingKeys: String, CodingKey {
-        case id, type, start, end, origin, device
+        case id, type, start, end, origin, device, route
         case zoneOffset = "zone_offset"
         case distanceM = "distance_m"
         case durationS = "duration_s"
@@ -38,15 +40,16 @@ struct Upload: Encodable, Equatable {
 /// calcpace_web (HealthConnect::UploadsController, with an "ios" link:
 /// HealthConnect::Store::IOS), and the link token the page hands over
 /// through the "apple-health" bridge component. The Android app's HcPayload,
-/// without steps, routes or pending sessions.
+/// without steps.
 enum HealthPayload {
     static let maxSessions = 50
     static let maxDeleted = 200
 
     private static let linkToken = try! NSRegularExpression(pattern: "^[A-Za-z0-9_-]{43}\\z")
 
-    /// At most `maxSessions` sessions and `maxDeleted` ids per request.
-    /// Nothing to say, no request: the anchor still moves on.
+    /// At most `maxSessions` sessions, `HealthRoute.maxPointsPerUpload`
+    /// route points and `maxDeleted` ids per request. Nothing to say, no
+    /// request: the anchor still moves on.
     static func batches(sessions: [WireSession], deleted: [String], initial: Bool) -> [Upload] {
         // The same workout twice: the last word wins.
         var seen = Set<String>()
@@ -54,7 +57,7 @@ enum HealthPayload {
         var seenDeleted = Set<String>()
         let gone = deleted.filter { seenDeleted.insert($0).inserted }
 
-        let s = chunks(Array(unique), of: maxSessions)
+        let s = sessionChunks(Array(unique))
         let d = chunks(gone, of: maxDeleted)
         return (0 ..< max(s.count, d.count)).map { index in
             Upload(
@@ -83,6 +86,26 @@ enum HealthPayload {
 
     static func linkRequest(_ jsonData: String) -> LinkRequest? {
         try? JSONDecoder().decode(LinkRequest.self, from: Data(jsonData.utf8))
+    }
+
+    /// In order, a new request once the next session would pass either
+    /// limit. A route is at most HealthRoute.maxPoints, so each fits alone.
+    private static func sessionChunks(_ sessions: [WireSession]) -> [[WireSession]] {
+        var chunks: [[WireSession]] = []
+        var current: [WireSession] = []
+        var points = 0
+        for session in sessions {
+            let count = session.route?.count ?? 0
+            if !current.isEmpty, current.count == maxSessions || points + count > HealthRoute.maxPointsPerUpload {
+                chunks.append(current)
+                current = []
+                points = 0
+            }
+            current.append(session)
+            points += count
+        }
+        if !current.isEmpty { chunks.append(current) }
+        return chunks
     }
 
     private static func chunks<T>(_ items: [T], of size: Int) -> [[T]] {
