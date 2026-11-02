@@ -1,0 +1,5 @@
+# The app on App Store Connect and the developer team it belongs to. The team
+# id is a secret only in the sense that it stays out of a public repo's files
+# until the account exists; CI reads it from the APPLE_TEAM_ID secret.
+app_identifier("app.calcpace.ios")
+team_id(ENV["APPLE_TEAM_ID"])

@@ -9,3 +9,11 @@ artifacts/
 *.xcresult
 .DS_Store
 xcuserdata/
+
+# fastlane (Gemfile, fastlane/): local gems and what a run leaves behind
+.bundle/
+vendor/bundle/
+fastlane/README.md
+fastlane/report.xml
+*.ipa
+*.dSYM.zip
