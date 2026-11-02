@@ -29,7 +29,11 @@ targets:
     # (HealthSync's background delivery). Push: the "your run is in"
     # notification, from APNs' development environment; the App Store
     # build's distribution profile turns it into production when the
-    # archive is signed (I0).
+    # archive is signed (I0). Sign in with Apple (AppleSignIn): not inert
+    # for signing. The App ID app.calcpace.ios needs the capability turned
+    # on before `match` makes its profiles, or signed builds fail; the
+    # unsigned simulator builds don't care. The native flow needs no
+    # Services ID (that is only for sign-in on the web).
     entitlements:
       path: Support/Calcpace.entitlements
       properties:
@@ -37,6 +41,7 @@ targets:
         com.apple.developer.healthkit.access: []
         com.apple.developer.healthkit.background-delivery: true
         aps-environment: development
+        com.apple.developer.applesignin: [Default]
     info:
       path: Support/Info.plist
       properties:
