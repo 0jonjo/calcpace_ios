@@ -6,10 +6,12 @@ import UIKit
 /// the page handed over (AppleHealthComponent "link"):
 ///
 /// - right after the link (the last 30 days), each time the app comes to the
-///   front, and whenever HealthKit wakes the app for a new workout
+///   front, and whenever HealthKit wakes the app for a new workout or route
 ///   (`HKObserverQuery` + background delivery, at most hourly, often later);
 /// - what changed since the anchor of the last sync the server answered,
 ///   deletions included, so a workout is sent again until it was taken;
+/// - the workouts read before their distance or route was saved, read again
+///   by id until they have it (PendingWorkouts);
 /// - a 401 means the link died on the server (signed out, password changed,
 ///   disconnected): the app forgets it, as on "forget".
 ///
@@ -28,7 +30,10 @@ actor HealthSync {
     private let links: HealthLinkStore
     private var uploader: HealthUploader
     private var current: Task<Outcome, Never>?
-    private var observer: HKObserverQuery?
+    private var observers: [HKObserverQuery] = []
+
+    /// A new workout, and a route its app saved after it (PendingWorkouts).
+    private static let observedTypes: [HKSampleType] = [HealthReader.workoutType, HealthReader.routeType]
 
     init(reader: HealthReader = HealthReader(), links: HealthLinkStore = .shared, uploader: HealthUploader = HealthUploader()) {
         self.reader = reader
@@ -42,7 +47,7 @@ actor HealthSync {
     func resume() async {
         guard links.token != nil else { return }
         observe()
-        try? await reader.store.enableBackgroundDelivery(for: HealthReader.workoutType, frequency: .hourly)
+        await enableBackgroundDelivery()
     }
 
     /// The page's "link", after a granted "enable".
@@ -50,11 +55,7 @@ actor HealthSync {
     func link(token: String) async -> Bool {
         guard links.link(token: token) else { return false }
         observe()
-        do {
-            try await reader.store.enableBackgroundDelivery(for: HealthReader.workoutType, frequency: .hourly)
-        } catch {
-            // Still synced each time the app comes to the front.
-        }
+        await enableBackgroundDelivery()
         Task { await run() }
         return true
     }
@@ -63,10 +64,10 @@ actor HealthSync {
     /// athlete changes them, in Settings.
     func forget() async {
         links.clear()
-        if let observer {
+        for observer in observers {
             reader.store.stop(observer)
-            self.observer = nil
         }
+        observers = []
         try? await reader.store.disableAllBackgroundDelivery()
     }
 
@@ -104,10 +105,33 @@ actor HealthSync {
             return .failedToRead
         }
 
+        let now = Int(Date().timeIntervalSince1970)
+        var pending = PendingWorkouts.remove(PendingWorkouts.expire(links.pending, now: now), changes.deleted)
+        let changed = Set(changes.workouts.map { WorkoutMapper.id($0.uuid) })
+        let waiting = pending.filter { !changed.contains($0.key) }
+        var rechecked: [HKWorkout] = []
+        // Gone from Apple Health meanwhile: no longer waited for. A read that
+        // fails leaves them waiting.
+        if let found = try? await reader.workouts(ids: Set(waiting.keys.compactMap(UUID.init(uuidString:)))) {
+            rechecked = found
+            let still = Set(found.map { WorkoutMapper.id($0.uuid) })
+            pending = PendingWorkouts.remove(pending, waiting.keys.filter { !still.contains($0) })
+        }
+
         var sessions: [WireSession] = []
-        for workout in changes.workouts {
-            if let session = WorkoutMapper.wire(await reader.facts(workout)) {
-                sessions.append(session)
+        for workout in changes.workouts + rechecked {
+            let id = WorkoutMapper.id(workout.uuid)
+            let isChanged = changed.contains(id)
+            let reason = waiting[id]?.reason
+            // Waiting only for its route, which is still not there: the rest
+            // is not read again.
+            if !isChanged, reason == .route, await reader.route(of: workout) == nil { continue }
+            let next = PendingWorkouts.next(WorkoutMapper.judge(await reader.facts(workout)), waiting: pending[id]?.reason, changed: isChanged)
+            if let session = next.send { sessions.append(session) }
+            if let wait = next.wait {
+                pending = PendingWorkouts.mark(pending, id, wait, now: now)
+            } else {
+                pending = PendingWorkouts.remove(pending, [id])
             }
         }
 
@@ -122,32 +146,41 @@ actor HealthSync {
 
         let overall = SyncPlan.overall(afters)
         switch overall {
-        case .advance: links.save(anchor: changes.anchor, for: token)
+        case .advance: links.save(anchor: changes.anchor, pending: pending, for: token)
         case .unlink: if links.token == token { await forget() }
         case .retry: break
         }
         return .sent(overall)
     }
 
+    private func enableBackgroundDelivery() async {
+        for type in Self.observedTypes {
+            // Without it, still synced each time the app comes to the front.
+            try? await reader.store.enableBackgroundDelivery(for: type, frequency: .hourly)
+        }
+    }
+
     private func observe() {
-        guard observer == nil else { return }
+        guard observers.isEmpty else { return }
         // HealthKit waits for completion() before it counts the wake-up as
         // handled, and stops waking an app that misses it a few times; it
         // also fires once as soon as the query starts. A background task
         // keeps the app up for the sync, and its expiry still answers.
-        let query = HKObserverQuery(sampleType: HealthReader.workoutType, predicate: nil) { [weak self] _, completion, error in
-            guard error == nil, let self else {
-                completion()
-                return
+        for type in Self.observedTypes {
+            let query = HKObserverQuery(sampleType: type, predicate: nil) { [weak self] _, completion, error in
+                guard error == nil, let self else {
+                    completion()
+                    return
+                }
+                Task { @MainActor in
+                    let wake = BackgroundWake(completion)
+                    await self.run()
+                    wake.finish()
+                }
             }
-            Task { @MainActor in
-                let wake = BackgroundWake(completion)
-                await self.run()
-                wake.finish()
-            }
+            observers.append(query)
+            reader.store.execute(query)
         }
-        observer = query
-        reader.store.execute(query)
     }
 }
 
