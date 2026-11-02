@@ -9,8 +9,11 @@ import XCTest
 // to the real site with the shared demo account (calcpace_web's
 // User::DEMO_EMAIL), whose seed (GuestResetJob) fills every panel: the
 // home, the runs list, a run with its route (the GPX "Lisboa Corrida"),
-// Performance, the race calendar and the Apple Health guide (in English
-// only: Language.appleHealthShot).
+// Performance, the race calendar (narrowed to the store's part of the
+// world) and the Apple Health guide (in English only:
+// Language.appleHealthShot). On the way it checks what the shots once
+// showed wrong: the home under the sign-in's bar, a run titled with the
+// site's name, a Back from the site under the app's.
 //
 // Only that workflow runs it: it sets STORE_SCREENSHOTS (on the xcodebuild
 // line, TEST_RUNNER_STORE_SCREENSHOTS) and the test skips without it, so
@@ -62,8 +65,14 @@ final class StoreScreenshotTests: XCTestCase {
         let activitiesTitle: String
         let performance: String
         let performanceTitle: String
+        let siteBack: String
         let calendar: String
         let calendarTitle: String
+        // The calendar narrowed to the store's own part of the world, which
+        // also drops its "Races near you" block: that one follows the
+        // runner's IP (CF-IPCountry), and the CI's is in the United States.
+        let calendarFilter: String
+        let calendarPlace: String
         let settings: String
         // Settings lives outside the site's /pt-BR prefix, so it and the
         // guide it links to are drawn in the profile's language, the demo
@@ -94,8 +103,11 @@ final class StoreScreenshotTests: XCTestCase {
             activitiesTitle: "My Activities",
             performance: "Performance",
             performanceTitle: "Your performance",
+            siteBack: "← Back",
             calendar: "Calendar",
             calendarTitle: "Race Calendar",
+            calendarFilter: "Filter by continent",
+            calendarPlace: "North America",
             settings: "Settings",
             appleHealthShot: true,
             appleHealthRow: "Apple Health",
@@ -123,8 +135,11 @@ final class StoreScreenshotTests: XCTestCase {
             activitiesTitle: "Minhas Atividades",
             performance: "Desempenho",
             performanceTitle: "Seu desempenho",
+            siteBack: "← Voltar",
             calendar: "Calendário",
             calendarTitle: "Calendário de Corridas",
+            calendarFilter: "Filtrar por país",
+            calendarPlace: "Brasil",
             settings: "Configurações",
             appleHealthShot: false,
             appleHealthRow: "App Saúde",
@@ -203,49 +218,54 @@ final class StoreScreenshotTests: XCTestCase {
 
         signIn(account, app: app)
 
-        // 2. The runs list, a tab root.
+        // 2. The account's home, where signing in lands: a root, with the
+        // sign-in gone from under it (no Back, no bar).
+        XCTAssertTrue(text(language.greeting, in: webView).waitForExistence(timeout: 60), "signing in did not land on the home")
+        XCTAssertFalse(backButton(app).exists, "the home opened under a Back button")
+        XCTAssertTrue(app.navigationBars.firstMatch.waitForNonExistence(timeout: 10), "the home opened under the app's bar")
+        settle(3)
+        shot("05-home")
+
+        // 3. The runs list, a tab root.
         tap(control(language.training, in: webView), "the \(language.training) tab", in: webView)
         XCTAssertTrue(text(language.activitiesTitle, in: webView).waitForExistence(timeout: 60), "the runs list did not open")
         settle(3)
         shot("04-activities")
 
-        // 3. The GPX run, whose page opens on its route.
+        // 4. The GPX run, whose page opens on its route, named in the app's
+        // bar, whose Back is the only one.
         let run = webView.links.matching(NSPredicate(format: "label CONTAINS %@", "Lisboa Corrida")).firstMatch
         tap(run, "the Lisboa Corrida run", in: webView)
         XCTAssertTrue(backButton(app).waitForExistence(timeout: 60), "the run did not open under the app's bar")
         XCTAssertTrue(text("Lisboa Corrida", in: webView).waitForExistence(timeout: 60), "the run's page did not load")
+        XCTAssertTrue(app.navigationBars.staticTexts["Lisboa Corrida"].waitForExistence(timeout: 10),
+                      "the app's bar does not name the run")
+        XCTAssertFalse(control(language.siteBack, in: webView).exists, "the run's page shows the site's Back under the app's")
         // The map's tiles come from the network after the page.
         settle(8)
         shot("02-run-map")
         goBack(app)
         XCTAssertTrue(text(language.activitiesTitle, in: webView).waitForExistence(timeout: 30), "Back did not return to the runs list")
 
-        // 4. Performance: zones, paces, predictions and the fitness trend.
+        // 5. Performance: zones, paces, predictions and the fitness trend.
         tap(control(language.performance, in: webView), "the \(language.performance) tab", in: webView)
         XCTAssertTrue(text(language.performanceTitle, in: webView).waitForExistence(timeout: 60), "Performance did not open")
         settle(4)
         shot("03-performance")
 
-        // 5. The race calendar.
+        // 6. The race calendar, narrowed to the store's part of the world.
         tap(control(language.calendar, in: webView), "the \(language.calendar) tab", in: webView)
         XCTAssertTrue(text(language.calendarTitle, in: webView).waitForExistence(timeout: 60), "the race calendar did not open")
+        choose(language.calendarPlace, in: language.calendarFilter, app: app)
+        XCTAssertTrue(text(language.calendarTitle, in: webView).waitForExistence(timeout: 60), "the filtered calendar did not open")
         settle(3)
         shot("07-race-calendar")
 
-        // 6. Apple Health: Settings, its Apple Health row (iOS app only), and
+        // 7. Apple Health: Settings, its Apple Health row (iOS app only), and
         // the guide that page links to. Nothing is linked.
         if language.appleHealthShot {
             shootAppleHealthGuide(app)
         }
-
-        // 7. The account's home, from the header's logo: a tab root, like
-        // the app's launch. (Where signing in lands, the home sits under the
-        // sign-in page's bar and Back.)
-        tap(control("Calcpace", in: webView), "the header's logo", in: webView)
-        XCTAssertTrue(text(language.greeting, in: webView).waitForExistence(timeout: 60), "the home did not open")
-        XCTAssertTrue(backButton(app).waitForNonExistence(timeout: 10), "the home opened under a Back button")
-        settle(3)
-        shot("05-home")
 
         // Signing out lands on the sign-in page.
         tapInMenu(control(language.signOut, in: webView), language.signOut, app: app)
@@ -269,6 +289,8 @@ final class StoreScreenshotTests: XCTestCase {
         }
         row.tap()
         let guide = webView.links.matching(NSPredicate(format: "label BEGINSWITH %@", language.guideLink)).firstMatch
+        XCTAssertTrue(guide.waitForExistence(timeout: 60), "the Apple Health page did not open")
+        XCTAssertFalse(control(language.settings, in: webView).exists, "Settings' page shows the site's \"< Settings\" under the app's")
         tap(guide, "the Apple Health guide link", in: webView)
         XCTAssertTrue(text(language.guideTitle, in: webView).waitForExistence(timeout: 60), "the Apple Health guide did not open")
         settle(3)
@@ -415,6 +437,37 @@ final class StoreScreenshotTests: XCTestCase {
                           file: file, line: line)
         }
         tap(element, "\(name) in the menu", in: webView, file: file, line: line)
+    }
+
+    // An option of one of the page's <select>s, by the select's aria-label:
+    // WebKit opens it as a menu on the iPhone, or as a wheel. The select is
+    // an "Other" in the page's tree, its option the value.
+    private func choose(_ option: String, in selectLabel: String, app: XCUIApplication,
+                        file: StaticString = #filePath, line: UInt = #line) {
+        let webView = app.webViews.firstMatch
+        let select = text(selectLabel, in: webView)
+        tap(select, "the \"\(selectLabel)\" filter", in: webView, file: file, line: line)
+
+        let wheel = app.pickerWheels.firstMatch
+        // Not a static text: a line of the page that reads the same would do.
+        let item = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label == %@ AND elementType IN %@", option,
+                                  [XCUIElement.ElementType.menuItem, .button, .cell].map { NSNumber(value: $0.rawValue) }))
+            .firstMatch
+        guard waitForAny([wheel, item], timeout: 10) != nil else {
+            debug("no-select-menu")
+            return XCTFail("\"\(selectLabel)\" opened no menu with \(option)", file: file, line: line)
+        }
+        if wheel.exists {
+            wheel.adjust(toPickerWheelValue: option)
+            let done = app.toolbars.buttons.firstMatch
+            if done.exists { done.tap() }
+        } else {
+            item.tap()
+        }
+        let chosen = waitUntil(timeout: 30) { (select.value as? String) == option }
+        if !chosen { debug("not-chosen") }
+        XCTAssertTrue(chosen, "\"\(selectLabel)\" did not change to \(option)", file: file, line: line)
     }
 
     private func backButton(_ app: XCUIApplication) -> XCUIElement {
