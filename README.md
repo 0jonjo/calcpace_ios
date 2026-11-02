@@ -25,7 +25,7 @@ open Calcpace.xcodeproj
 - Routing follows a path configuration the site serves (`/configurations/ios_v1.json`), with a copy bundled for the first launch. The front page and the bottom tab bar's destinations open as roots, with the site's header and no navigation bar; every other screen is pushed under the native bar, with Back and the page's title, and the site hides its own header there.
 - The `share-image` bridge component hands a run's share card to the iOS share sheet.
 - The `push` bridge component turns on the "your run is in" notification from the home page and hands the page the APNs device token; a tap on the notification opens the run in the app.
-- Sign-in is email only for now. Google and Strava sign-in come back with Sign in with Apple, as App Store rule 4.8 requires.
+- Sign-in is email only for now. Google and Strava sign-in come back with Sign in with Apple, as App Store rule 4.8 requires. The app's side of them is in place (`Calcpace/Auth`): the site's buttons open the provider in a web authentication session, which hands a one-time ticket back on the `app.calcpace.ios` scheme for the WebView to trade, with a PKCE verifier only the app holds, for a session. The site keeps the buttons hidden in the iOS app until then.
 
 ## License
 
