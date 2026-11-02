@@ -43,8 +43,7 @@ final class DemoAccountTests: XCTestCase {
         let account = try demoAccount()
         let app = XCUIApplication()
         app.launch()
-        let webView = app.webViews.firstMatch
-        XCTAssertTrue(webView.waitForExistence(timeout: 30), "no web view")
+        let webView = waitForWebView(in: app)
 
         // A session must not outlive a failure: the next tests expect the
         // signed-out front page, and the account its sessions.

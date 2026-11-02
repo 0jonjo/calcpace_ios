@@ -180,8 +180,7 @@ final class StoreScreenshotTests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = language.arguments
         app.launch()
-        let webView = app.webViews.firstMatch
-        XCTAssertTrue(webView.waitForExistence(timeout: 30), "no web view")
+        let webView = waitForWebView(in: app)
 
         onSignInForm = false
         signedOut = false

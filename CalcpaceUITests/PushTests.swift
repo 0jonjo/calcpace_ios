@@ -70,7 +70,7 @@ final class PushTests: XCTestCase {
 
     // The home page's quick calculator: its fields are the first thing it draws.
     private func assertOnHome(_ app: XCUIApplication) {
-        XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 30), "no web view")
+        waitForWebView(in: app)
         XCTAssertTrue(app.webViews.firstMatch.textFields.firstMatch.waitForExistence(timeout: 60), "calcpace.app did not load")
     }
 

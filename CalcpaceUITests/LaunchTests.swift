@@ -59,8 +59,7 @@ final class LaunchTests: XCTestCase {
         let app = XCUIApplication()
         app.launch()
 
-        let webView = app.webViews.firstMatch
-        XCTAssertTrue(webView.waitForExistence(timeout: 30), "no web view")
+        let webView = waitForWebView(in: app)
 
         // The calculator's fields: a Cloudflare challenge page also says
         // "calcpace.app", but has none.
