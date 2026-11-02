@@ -1,7 +1,7 @@
 import XCTest
 
 // Apple Health without the site: the app's harness (HealthHarness, debug
-// builds only) writes four workouts to the simulator's Apple Health, links
+// builds only) writes five workouts to the simulator's Apple Health, links
 // with a made-up token and syncs against a fake server in its own process.
 // This test answers the HealthKit sheet and reads what the harness saw.
 final class HealthTests: XCTestCase {
@@ -30,6 +30,16 @@ final class HealthTests: XCTestCase {
         // Heart rate samples of 150 and 160 during the run.
         XCTAssertTrue(words.contains { $0.hasPrefix("hr=15") && $0.hasSuffix("/160") }, status.label)
         XCTAssertTrue(words.contains("zone=-10800"), status.label)
+        // A location a second for 25 minutes, a point every 5 seconds sent,
+        // each [epoch seconds, lat, lon].
+        XCTAssertTrue(words.contains("route=301/true"), status.label)
+        // Saved after the sync that sent them: the walk's route (24
+        // minutes), the run's distance; each once, and nothing on a sync
+        // with nothing new.
+        XCTAssertTrue(words.contains("lateroute=289"), status.label)
+        XCTAssertTrue(words.contains("latedistance=4000"), status.label)
+        XCTAssertTrue(words.contains("later=2"), status.label)
+        XCTAssertTrue(words.contains("quiet=true"), status.label)
         XCTAssertTrue(words.contains("deleted=true"), status.label)
         XCTAssertTrue(words.contains("unlinked=true"), status.label)
         XCTAssertTrue(words.contains("bearer=true"), status.label)
