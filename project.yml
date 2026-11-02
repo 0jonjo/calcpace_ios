@@ -52,7 +52,7 @@ targets:
         # one that only reads included. Only the UI tests' harness, in debug
         # builds, ever asks to write.
         NSHealthUpdateUsageDescription: "Calcpace doesn't write anything to the Health app."
-        NSHealthShareUsageDescription: "Calcpace imports the runs and walks your Apple Watch and running apps (Strava, Nike, Garmin, adidas) save to the Health app. We read only the time, distance, duration, climb and heart rate of those workouts."
+        NSHealthShareUsageDescription: "Calcpace imports the runs and walks your Apple Watch and running apps (Strava, Nike, Garmin, adidas) save to the Health app. We read only the time, distance, duration, climb, heart rate and route of those workouts."
         # The site is light only: a dark clock everywhere, whatever iOS 26's
         # bars make of the page under them.
         UIViewControllerBasedStatusBarAppearance: false
