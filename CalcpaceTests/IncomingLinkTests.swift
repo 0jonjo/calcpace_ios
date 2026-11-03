@@ -84,8 +84,8 @@ final class IncomingLinkTests: XCTestCase {
         }
     }
 
-    // The sign-in's own scheme is the web authentication session's alone;
-    // from outside it is nothing.
+    // The first TestFlight build's sign-in scheme, which the app no longer
+    // waits on: from outside it is nothing.
     func testTheAppsSchemeFromOutsideIsIgnored() {
         for url in ["app.calcpace.ios://app_auth/callback?ticket=\(ticket)", "app.calcpace.ios://calcpace.app/pt-BR",
                     "APP.CALCPACE.IOS://app_auth/callback?ticket=\(ticket)"] {
