@@ -1,0 +1,61 @@
+# A simulator build of the app, zipped the way Appetize.io takes it, to try
+# the whole app in a browser without a Mac or an iPhone. Release
+# configuration, like TestFlight; it talks to production (calcpace.app).
+# Simulator only: no device signing, push needs a real device.
+name: Appetize build
+
+on:
+  push:
+    branches: [ci/appetize-build]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "26.3"
+
+      - name: Generate the Xcode project
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      # Both simulator architectures: Appetize's hosts are not all Apple
+      # silicon. Signed to run locally ("-"), so the entitlements (Apple
+      # Health, Sign in with Apple) are in the binary as on a phone.
+      - name: Build for the simulator
+        run: |
+          xcodebuild build \
+            -project Calcpace.xcodeproj \
+            -scheme Calcpace \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -destination "generic/platform=iOS Simulator" \
+            -derivedDataPath build \
+            ARCHS="arm64 x86_64" ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGN_IDENTITY="-" CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM="" PROVISIONING_PROFILE_SPECIFIER=""
+
+      - name: Zip the app
+        run: |
+          app=build/Build/Products/Release-iphonesimulator/Calcpace.app
+          lipo -info "$app/Calcpace"
+          codesign -d --entitlements - "$app" 2>&1 | head -40 || true
+          /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" -c "Print :CFBundleVersion" -c "Print :MinimumOSVersion" "$app/Info.plist"
+          mkdir -p out
+          ditto -c -k --sequesterRsrc --keepParent "$app" out/Calcpace-simulator.zip
+          ls -la out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Calcpace-simulator
+          path: out/Calcpace-simulator.zip
