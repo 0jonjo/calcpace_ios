@@ -183,6 +183,11 @@ final class AppAuthTests: XCTestCase {
         return Dictionary(items.map { ($0.name, $0.value ?? "") }, uniquingKeysWith: { first, _ in first })
     }
 
+    private func callbackTicket(_ url: String) -> String? {
+        guard let callback = URL(string: url) else { return nil }
+        return AppAuth.ticket(fromCallback: callback, rootURL: URL(string: "https://calcpace.app")!)
+    }
+
     private func verifier(of redeem: URL) -> String {
         query(redeem)["verifier"] ?? ""
     }
@@ -194,7 +199,7 @@ final class AppAuthTests: XCTestCase {
         XCTAssertEqual(start.path, "/app_auth/start")
         let items = query(start)
         XCTAssertEqual(items["provider"], "strava")
-        XCTAssertEqual(items["platform"], "ios")
+        XCTAssertEqual(items["platform"], "ios_https")
         XCTAssertEqual(items["challenge"]?.count, 43)
 
         // The challenge is the verifier's, which only the redeem reveals.
@@ -246,31 +251,33 @@ final class AppAuthTests: XCTestCase {
     }
 
     func testTheCallbackIsTheSitesExactAddress() {
-        XCTAssertEqual(AppAuth.ticket(fromCallback: URL(string: "app.calcpace.ios://app_auth/callback?ticket=\(ticket)")!), ticket)
-        XCTAssertEqual(AppAuth.ticket(fromCallback: URL(string: "APP.CALCPACE.IOS://app_auth/callback?ticket=\(ticket)")!), ticket)
+        XCTAssertEqual(callbackTicket("https://calcpace.app/app_auth/callback?ticket=\(ticket)"), ticket)
+        XCTAssertEqual(callbackTicket("HTTPS://CALCPACE.APP/app_auth/callback?ticket=\(ticket)"), ticket)
     }
 
-    func testAnythingElseOnTheSchemeHasNoTicket() {
+    func testAnythingElseHasNoTicket() {
         for url in [
-            "app.calcpace.ios://app_auth/callback",
-            "app.calcpace.ios://app_auth/callback?ticket=short",
-            "app.calcpace.ios://app_auth/callback?ticket=\(ticket)x",
-            "app.calcpace.ios://app_auth/callback?ticket=\(ticket)&ticket=\(ticket)",
-            "app.calcpace.ios://app_auth/callback?ticket=",
-            "app.calcpace.ios://app_auth/callback/?ticket=\(ticket)",
-            "app.calcpace.ios://app_auth//callback?ticket=\(ticket)",
-            "app.calcpace.ios://app_auth/callbac%6B?ticket=\(ticket)",
-            "app.calcpace.ios://app_auth/redeem?ticket=\(ticket)",
-            "app.calcpace.ios://evil/callback?ticket=\(ticket)",
-            "app.calcpace.ios://user@app_auth/callback?ticket=\(ticket)",
-            "app.calcpace.ios://app_auth:1/callback?ticket=\(ticket)",
-            "app.calcpace.ios:/app_auth/callback?ticket=\(ticket)",
-            "calcpace://app_auth/callback?ticket=\(ticket)",
-            "https://calcpace.app/app_auth/callback?ticket=\(ticket)",
-            "app.calcpace.ios.evil://app_auth/callback?ticket=\(ticket)"
+            "https://calcpace.app/app_auth/callback",
+            "https://calcpace.app/app_auth/callback?ticket=short",
+            "https://calcpace.app/app_auth/callback?ticket=\(ticket)x",
+            "https://calcpace.app/app_auth/callback?ticket=\(ticket)&ticket=\(ticket)",
+            "https://calcpace.app/app_auth/callback?ticket=",
+            "https://calcpace.app/app_auth/callback/?ticket=\(ticket)",
+            "https://calcpace.app//app_auth/callback?ticket=\(ticket)",
+            "https://calcpace.app/app_auth//callback?ticket=\(ticket)",
+            "https://calcpace.app/app_auth/callbac%6B?ticket=\(ticket)",
+            "https://calcpace.app/pt-BR/app_auth/callback?ticket=\(ticket)",
+            "https://calcpace.app/app_auth/redeem?ticket=\(ticket)",
+            "https://www.calcpace.app/app_auth/callback?ticket=\(ticket)",
+            "https://calcpace.app.evil.example/app_auth/callback?ticket=\(ticket)",
+            "https://user@calcpace.app/app_auth/callback?ticket=\(ticket)",
+            "https://calcpace.app:8443/app_auth/callback?ticket=\(ticket)",
+            "http://calcpace.app/app_auth/callback?ticket=\(ticket)",
+            // The first TestFlight build's scheme: gone.
+            "app.calcpace.ios://app_auth/callback?ticket=\(ticket)",
+            "calcpace://app_auth/callback?ticket=\(ticket)"
         ] {
-            guard let callback = URL(string: url) else { continue }
-            XCTAssertNil(AppAuth.ticket(fromCallback: callback), url)
+            XCTAssertNil(callbackTicket(url), url)
         }
     }
 
@@ -349,8 +356,8 @@ final class AppAuthTests: XCTestCase {
     // A bogus callback must not wipe the verifier before the real one arrives.
     func testACallbackNeverSpendsTheVerifier() throws {
         XCTAssertNotNil(auth.begin(provider: "google"))
-        XCTAssertNil(AppAuth.ticket(fromCallback: URL(string: "app.calcpace.ios://app_auth/callback?ticket=bogus")!))
-        XCTAssertNotNil(AppAuth.ticket(fromCallback: URL(string: "app.calcpace.ios://app_auth/callback?ticket=\(ticket)")!))
+        XCTAssertNil(callbackTicket("https://calcpace.app/app_auth/callback?ticket=bogus"))
+        XCTAssertNotNil(callbackTicket("https://calcpace.app/app_auth/callback?ticket=\(ticket)"))
         XCTAssertNotNil(auth.redeemLocation(ticket: ticket))
         XCTAssertNotNil(auth.redeemLocation(ticket: ticket))
     }

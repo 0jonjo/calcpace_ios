@@ -11,17 +11,18 @@ import Foundation
 /// On iPhone, only `.web` is ever acted on (`location(forOutsideLink:)`):
 ///
 /// - A sign-in comes back only through the web authentication session that
-///   started it (`AppAuthBrowser`), on the app.calcpace.ios scheme, never as
-///   a link from outside. So `.signIn`, the Android app's App Link callback,
-///   is ignored here.
+///   started it (`AppAuthBrowser`), which catches the https callback itself,
+///   never as a link from outside: the site's apple-app-site-association
+///   leaves /app_auth out of the universal links. So `.signIn`, the Android
+///   app's App Link callback, is ignored here.
 /// - `.browserTab`, a provider step whose OAuth state lives in the sign-in
 ///   browser's cookies, has no tab to go back to: the session is the only
 ///   browser holding that state, and it keeps the step to itself. In the
 ///   WebView the step would fail the state check.
 ///
-/// Universal links aren't set up yet (no Team ID for the site's
-/// apple-app-site-association), so for now nothing reaches this but what
-/// iOS may hand over on its own; the rules are ready for when they are.
+/// The universal links the site's apple-app-site-association claims are the
+/// email links (verify the address, reset the password), as on Android;
+/// iOS hands nothing else over, but the rules hold for any link.
 enum IncomingLink: Equatable {
     /// The site finished a sign-in started by this app.
     case signIn(ticket: String)

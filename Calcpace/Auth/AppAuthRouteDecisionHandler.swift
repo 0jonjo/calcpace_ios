@@ -106,15 +106,21 @@ final class AppAuthBrowser: NSObject, ASWebAuthenticationPresentationContextProv
     func signIn(with provider: String, navigator: Navigating) {
         // The sheet needs a window on screen to come up from. Another
         // sign-in under way would have its verifier replaced by this one's.
+        let rootURL = auth.rootURL
         guard session == nil, !otherIsBusy(),
               let window = navigator.rootViewController.viewIfLoaded?.window,
+              let host = rootURL.host,
               let start = auth.begin(provider: provider)
         else { return }
 
         attempt += 1
         let current = attempt
-        let session = ASWebAuthenticationSession(url: start, callbackURLScheme: AppAuth.callbackScheme) { [weak self] callbackURL, _ in
-            let ticket = callbackURL.flatMap { AppAuth.ticket(fromCallback: $0) }
+        // The https callback (iOS 17.4): the session fails to start unless the
+        // site's apple-app-site-association names the app under
+        // webcredentials (see AppAuth).
+        let callback = ASWebAuthenticationSession.Callback.https(host: host, path: AppAuth.callbackPath)
+        let session = ASWebAuthenticationSession(url: start, callback: callback) { [weak self] callbackURL, _ in
+            let ticket = callbackURL.flatMap { AppAuth.ticket(fromCallback: $0, rootURL: rootURL) }
             Task { @MainActor [weak self] in self?.finish(current, ticket: ticket) }
         }
         session.presentationContextProvider = self

@@ -42,16 +42,16 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         }
 
         // A link from outside that launched the app opens on top of the
-        // home page too. URLs on the app's own scheme (connectionOptions'
-        // urlContexts) are never read: see scene(_:openURLContexts:).
+        // home page too. URLs on a scheme (connectionOptions' urlContexts)
+        // are never read: see scene(_:openURLContexts:).
         if let location = connectionOptions.userActivities.lazy.compactMap({ Self.outsideLocation($0) }).first {
             navigator.route(location)
         }
     }
 
     // A link from outside with the app running: a calcpace.app page handed
-    // over by iOS (a universal link, once the site's
-    // apple-app-site-association names the app). Ordinary pages only
+    // over by iOS (a universal link: the email links the site's
+    // apple-app-site-association claims). Ordinary pages only
     // (IncomingLink).
     func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
 #if DEBUG
@@ -61,11 +61,10 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         navigator.route(location)
     }
 
-    // The app's own scheme, app.calcpace.ios, isn't registered: a sign-in
-    // comes back through its web authentication session (AppAuthBrowser),
-    // never this way. Should iOS ever deliver one anyway, from another app
-    // or a link, it is dropped without a look: a ticket from outside is
-    // someone else's.
+    // The app registers no scheme: a sign-in comes back through its web
+    // authentication session's https callback (AppAuthBrowser), never this
+    // way. Should iOS ever deliver a URL anyway, from another app or a link,
+    // it is dropped without a look: a ticket from outside is someone else's.
     func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {}
 
     // iOS may let the scene go while the process stays (HealthKit's

@@ -4,7 +4,7 @@ options:
   bundleIdPrefix: app.calcpace
   developmentLanguage: en
   deploymentTarget:
-    iOS: "16.0"
+    iOS: "17.4"
   createIntermediateGroups: true
 
 packages:
@@ -42,6 +42,12 @@ targets:
     # its profiles, or signed builds fail; the unsigned simulator builds
     # don't care. The native flow needs no Services ID (that is only for
     # sign-in on the web).
+    # Associated Domains: calcpace.app's apple-app-site-association names the
+    # app (Team ID + bundle ID). webcredentials lets the Google/Strava sign-in
+    # session end on https://calcpace.app/app_auth/callback (iOS 17.4's https
+    # callback, hence the deployment target); applinks opens the email links
+    # (verify the address, reset the password) in the app. On the App ID
+    # since 03/11/2026, so the match profiles carry it.
     entitlements:
       path: Support/Calcpace.entitlements
       properties:
@@ -50,6 +56,9 @@ targets:
         com.apple.developer.healthkit.background-delivery: true
         aps-environment: "$(APS_ENVIRONMENT)"
         com.apple.developer.applesignin: [Default]
+        com.apple.developer.associated-domains:
+          - applinks:calcpace.app
+          - webcredentials:calcpace.app
     info:
       path: Support/Info.plist
       properties:
