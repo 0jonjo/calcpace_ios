@@ -11,11 +11,15 @@ import Foundation
 /// 1. The site's in-app button links to /app_auth/google (or /strava);
 ///    `AppAuthRouteDecisionHandler` catches it and calls `begin(provider:)`.
 /// 2. `begin` keeps a fresh verifier and gives the session
-///    /app_auth/start?provider=…&challenge=…&platform=ios to open.
+///    /app_auth/start?provider=…&challenge=…&platform=ios_https to open.
 /// 3. After the provider, the site sends the session to
-///    app.calcpace.ios://app_auth/callback?ticket=…, which the session hands
-///    to the app that started it, and to no other
-///    (`ticket(fromCallback:)`).
+///    https://calcpace.app/app_auth/callback?ticket=…, the address Android's
+///    App Link uses too. The session catches it before it loads and hands it
+///    to the app that started it (`ticket(fromCallback:rootURL:)`). iOS lets
+///    a session wait on an https address only for an app the site's
+///    apple-app-site-association names under webcredentials (and the app's
+///    Associated Domains entitlement), so no other app can catch it, as a
+///    custom scheme could (any app may name any scheme).
 /// 4. `redeemLocation(ticket:)` points the WebView at /app_auth/redeem with
 ///    the ticket and the verifier, which signs the WebView in.
 ///
@@ -31,10 +35,10 @@ final class AppAuth {
 
     static let providers: Set<String> = ["google", "strava"]
 
-    /// The scheme the site sends an iPhone's sign-in back on. Not registered
-    /// in Info.plist: the web authentication session catches it itself, and
-    /// no other app, nor a link anywhere, can open the app with it.
-    static let callbackScheme = "app.calcpace.ios"
+    /// Where on the site an iPhone's sign-in comes back. The site's
+    /// apple-app-site-association leaves it out of the universal links: only
+    /// the web authentication session ever catches it.
+    static let callbackPath = "/app_auth/callback"
 
     // As long as the site keeps the challenge bound to the provider's state
     // (AppAuthHandoff::BOUND_TTL: a Strava sign-up can sit on the finish
@@ -47,7 +51,7 @@ final class AppAuth {
     private static let verifierKey = "appAuth.verifier"
     private static let startedAtKey = "appAuth.startedAt"
 
-    private let rootURL: URL
+    let rootURL: URL
     private let defaults: UserDefaults
     private let now: () -> Date
 
@@ -77,7 +81,9 @@ final class AppAuth {
         components?.queryItems = [
             URLQueryItem(name: "provider", value: provider),
             URLQueryItem(name: "challenge", value: Pkce.challenge(for: verifier)),
-            URLQueryItem(name: "platform", value: "ios")
+            // ios_https: end on the https callback. Plain "ios" was the first
+            // TestFlight build, which waited on a scheme of its own.
+            URLQueryItem(name: "platform", value: "ios_https")
         ]
         guard let start = components?.url else { return nil }
 
@@ -97,13 +103,15 @@ final class AppAuth {
     }
 
     /// The ticket in the site's callback, or nil for anything that isn't
-    /// exactly app.calcpace.ios://app_auth/callback?ticket=<ticket>.
-    static func ticket(fromCallback url: URL) -> String? {
+    /// exactly https://calcpace.app/app_auth/callback?ticket=<ticket> (the
+    /// root's scheme and host, no port, user or locale).
+    static func ticket(fromCallback url: URL, rootURL: URL) -> String? {
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
-              components.scheme?.lowercased() == callbackScheme,
-              components.host?.lowercased() == "app_auth",
-              components.percentEncodedPath == "/callback",
-              components.user == nil, components.password == nil, components.port == nil,
+              let rootScheme = rootURL.scheme, let rootHost = rootURL.host,
+              components.scheme?.lowercased() == rootScheme.lowercased(),
+              components.host?.lowercased() == rootHost.lowercased(),
+              components.percentEncodedPath == callbackPath,
+              components.user == nil, components.password == nil, components.port == rootURL.port,
               let tickets = components.queryItems?.filter({ $0.name == "ticket" }),
               tickets.count == 1,
               let ticket = tickets[0].value,
