@@ -54,6 +54,26 @@ final class HealthReader {
         }
     }
 
+    /// The runs (treadmill included) that started in `interval`, oldest
+    /// first: a window of the history read (SyncPlan.historyWindow).
+    func runs(in interval: DateInterval) async throws -> [HKWorkout] {
+        let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            HKQuery.predicateForSamples(withStart: interval.start, end: interval.end, options: .strictStartDate),
+            HKQuery.predicateForWorkouts(with: .running)
+        ])
+        let oldestFirst = [NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)]
+        return try await withCheckedThrowingContinuation { continuation in
+            let query = HKSampleQuery(sampleType: Self.workoutType, predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: oldestFirst) { _, samples, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                continuation.resume(returning: (samples ?? []).compactMap { $0 as? HKWorkout })
+            }
+            store.execute(query)
+        }
+    }
+
     /// The workouts still in Apple Health among `ids` (PendingWorkouts).
     func workouts(ids: Set<UUID>) async throws -> [HKWorkout] {
         guard !ids.isEmpty else { return [] }

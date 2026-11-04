@@ -6,8 +6,9 @@ import Security
 /// handed over (the Keychain, readable after the first unlock so a
 /// background delivery can send, never backed up to another phone), and
 /// the HealthKit anchor of the last sync the server answered with the
-/// workouts still waiting then (PendingWorkouts), in UserDefaults. The
-/// token is never logged.
+/// workouts still waiting then (PendingWorkouts), and how far back the
+/// history read has come (SyncPlan.History), in UserDefaults. The token is
+/// never logged.
 final class HealthLinkStore {
     static let shared = HealthLinkStore()
 
@@ -19,6 +20,8 @@ final class HealthLinkStore {
     private static let anchorKey = "appleHealth.anchor"
     private static let pendingKey = "appleHealth.pending"
     private static let installedKey = "appleHealth.installed"
+    private static let historyEdgeKey = "appleHealth.historyEdge"
+    private static let historyFloorKey = "appleHealth.historyFloor"
 
     init(service: String = "app.calcpace.ios.apple-health", defaults: UserDefaults = .standard) {
         self.service = service
@@ -38,6 +41,13 @@ final class HealthLinkStore {
 
     var pending: PendingWorkouts.List {
         PendingWorkouts.decode(defaults.data(forKey: Self.pendingKey))
+    }
+
+    var history: SyncPlan.History? {
+        guard let edge = defaults.object(forKey: Self.historyEdgeKey) as? Date,
+              let floor = defaults.object(forKey: Self.historyFloorKey) as? Date
+        else { return nil }
+        return SyncPlan.History(edge: edge, floor: floor)
     }
 
     /// A new link: its token, and a fresh start (the initial 30 days).
@@ -63,6 +73,15 @@ final class HealthLinkStore {
         }
     }
 
+    /// Saved only while `token` is still the link, as the anchor.
+    func save(history: SyncPlan.History, for token: String) {
+        lock.lock()
+        defer { lock.unlock() }
+        guard readToken() == token else { return }
+        defaults.set(history.edge, forKey: Self.historyEdgeKey)
+        defaults.set(history.floor, forKey: Self.historyFloorKey)
+    }
+
     func clear() {
         lock.lock()
         defer { lock.unlock() }
@@ -83,6 +102,8 @@ final class HealthLinkStore {
     private func removeProgress() {
         defaults.removeObject(forKey: Self.anchorKey)
         defaults.removeObject(forKey: Self.pendingKey)
+        defaults.removeObject(forKey: Self.historyEdgeKey)
+        defaults.removeObject(forKey: Self.historyFloorKey)
     }
 
     private var baseQuery: [String: Any] {

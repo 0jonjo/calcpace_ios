@@ -30,16 +30,22 @@ enum HealthHarness {
 
     /// A run with its heart rate and route, a treadmill run, a walk whose
     /// route comes later, a ride that is no run (three sessions to send),
-    /// and a run whose distance comes later.
+    /// and a run whose distance comes later. Then the history, before the
+    /// initial 30 days: a run with its route (sent), a walk (left out) and a
+    /// run older than the history's three years (left out).
     static let seeds = [
         Seed(activity: .running, indoor: false, meters: 5000, hoursAgo: 50, minutes: 25, heartRates: [150, 160], route: true),
         Seed(activity: .running, indoor: true, meters: 3000, hoursAgo: 30, minutes: 18, heartRates: []),
         Seed(activity: .walking, indoor: false, meters: 2000, hoursAgo: 20, minutes: 24, heartRates: []),
         Seed(activity: .cycling, indoor: false, meters: nil, hoursAgo: 10, minutes: 40, heartRates: []),
-        Seed(activity: .running, indoor: false, meters: nil, hoursAgo: 5, minutes: 30, heartRates: [])
+        Seed(activity: .running, indoor: false, meters: nil, hoursAgo: 5, minutes: 30, heartRates: []),
+        Seed(activity: .running, indoor: false, meters: 8000, hoursAgo: 41 * 24, minutes: 45, heartRates: [], route: true),
+        Seed(activity: .walking, indoor: false, meters: 3000, hoursAgo: 40 * 24, minutes: 35, heartRates: []),
+        Seed(activity: .running, indoor: false, meters: 10000, hoursAgo: 4 * 365 * 24, minutes: 50, heartRates: [])
     ]
     static let lateRoute = 2
     static let lateDistance = 4
+    static let history = [5, 6, 7]
     static let lateMeters = 4000.0
 
     static func write(_ seed: Seed, to store: HKHealthStore) async throws -> HKWorkout {
@@ -235,7 +241,8 @@ final class HealthHarnessViewController: UIViewController {
             show("linking")
             guard await sync.link(token: HealthHarness.token) else { return show("error link refused") }
             _ = await sync.run()
-            let sent = FakeHealthServer.sessions
+            let historyIds = HealthHarness.history.map { WorkoutMapper.id(workouts[$0].uuid) }
+            let sent = FakeHealthServer.sessions.filter { !historyIds.contains($0["id"] as? String ?? "") }
             let types = sent.compactMap { $0["type"] as? String }.sorted()
             let run = sent.first { $0["type"] as? String == "running" }
             let route = run?["route"] as? [[Any]] ?? []
@@ -277,6 +284,15 @@ final class HealthHarnessViewController: UIViewController {
             _ = await sync.run()
             let unlinked = HealthLinkStore.shared.token == nil
 
+            // The history, over the syncs above: which of its three got
+            // there ("100": the run only), and always as initial.
+            let everSent = Set(FakeHealthServer.sessions.compactMap { $0["id"] as? String })
+            let history = historyIds.map { everSent.contains($0) ? "1" : "0" }.joined()
+            let historyUploads = FakeHealthServer.received.filter { received in
+                (received.body["sessions"] as? [[String: Any]] ?? []).contains { $0["id"] as? String == historyIds[0] }
+            }
+            let historyInitial = !historyUploads.isEmpty && historyUploads.allSatisfy { $0.body["initial"] as? Bool == true }
+
             let bearer = FakeHealthServer.received.allSatisfy { $0.authorization == "Bearer \(HealthHarness.token)" }
             show([
                 "done",
@@ -291,6 +307,8 @@ final class HealthHarnessViewController: UIViewController {
                 "quiet=\(quiet)",
                 "deleted=\(deletedSent)",
                 "unlinked=\(unlinked)",
+                "history=\(history)",
+                "historyinitial=\(historyInitial)",
                 "bearer=\(bearer)"
             ].joined(separator: " "))
         } catch {

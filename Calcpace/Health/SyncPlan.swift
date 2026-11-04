@@ -4,6 +4,11 @@ import Foundation
 ///
 /// - With no anchor, the sync is the initial read of the last 30 days; with
 ///   one, it asks Apple Health what changed since.
+/// - Before those 30 days, the history: runs only, back to `historyYears`,
+///   a window of `historyStepDays` at a time, newest first, at most
+///   `historyStepsPerSync` windows a sync. Each window is remembered once the
+///   server took it, so a long history arrives over a few syncs and never
+///   starts over (the server takes 30 requests in 10 minutes from a link).
 /// - The anchor only moves on once the server has answered every request of
 ///   the sync (`.advance`); otherwise the same changes are read and sent
 ///   again next time, which the server takes idempotently.
@@ -18,6 +23,16 @@ enum SyncPlan {
     static let noAnswer = -1
 
     static let initialDays = 30
+    static let historyYears = 3
+    static let historyStepDays = 90
+    static let historyStepsPerSync = 4
+
+    /// How far back the history read has come (`edge`: the start of the
+    /// last window the server took) and where it stops (`floor`).
+    struct History: Equatable {
+        let edge: Date
+        let floor: Date
+    }
 
     /// What an HTTP answer means for the anchor.
     static func after(_ status: Int) -> After {
@@ -40,6 +55,20 @@ enum SyncPlan {
 
     /// Where the initial read starts.
     static func initialStart(now: Date) -> Date {
-        now.addingTimeInterval(-Double(initialDays) * 24 * 60 * 60)
+        now.addingTimeInterval(-Double(initialDays) * day)
     }
+
+    /// The history of a link whose initial read started at `start`.
+    static func history(from start: Date) -> History {
+        History(edge: start, floor: start.addingTimeInterval(-Double(historyYears) * 365 * day))
+    }
+
+    /// The next window to read, the one just before `edge`; nil once at the floor.
+    static func historyWindow(_ history: History) -> DateInterval? {
+        guard history.edge > history.floor else { return nil }
+        let start = max(history.edge.addingTimeInterval(-Double(historyStepDays) * day), history.floor)
+        return DateInterval(start: start, end: history.edge)
+    }
+
+    private static let day: TimeInterval = 24 * 60 * 60
 }
