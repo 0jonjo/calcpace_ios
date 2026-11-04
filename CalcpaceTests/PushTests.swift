@@ -58,18 +58,29 @@ final class PushPagesTests: XCTestCase {
     func testTheHomePageInAnyLanguage() {
         for location in ["https://calcpace.app", "https://calcpace.app/", "https://calcpace.app/pt-BR",
                          "https://calcpace.app/zh-TW/", "https://calcpace.app/?ref=app", "https://calcpace.app/en#top"] {
-            XCTAssertTrue(PushPages.isHome(URL(string: location), rootURL: root), location)
+            XCTAssertTrue(PushPages.allows(URL(string: location), rootURL: root), location)
+        }
+    }
+
+    func testSettingsAndItsNotificationsPageInAnyLanguage() {
+        for location in ["https://calcpace.app/settings", "https://calcpace.app/pt-BR/settings",
+                         "https://calcpace.app/settings/notifications", "https://calcpace.app/zh-TW/settings/notifications",
+                         "https://calcpace.app/settings/notifications/", "https://calcpace.app/settings?x=1",
+                         "https://calcpace.app/pt-BR/settings/", "https://calcpace.app/pt-BR/settings/notifications#top"] {
+            XCTAssertTrue(PushPages.allows(URL(string: location), rootURL: root), location)
         }
     }
 
     func testNowhereElse() {
-        for location in ["https://calcpace.app/activities", "https://calcpace.app/settings",
+        for location in ["https://calcpace.app/activities", "https://calcpace.app/settings/units",
+                         "https://calcpace.app/settingsx", "https://calcpace.app/settings/notificationsx",
+                         "https://calcpace.app/notifications", "https://calcpace.app/settings/notifications/x",
                          "https://calcpace.app/xx", "https://calcpace.app//", "https://calcpace.app/pt-BR/activities",
                          "https://calcpace.app.evil.example/", "https://evil.example/", "http://calcpace.app/",
                          "https://calcpace.app/%70t-BR"] {
-            XCTAssertFalse(PushPages.isHome(URL(string: location), rootURL: root), location)
+            XCTAssertFalse(PushPages.allows(URL(string: location), rootURL: root), location)
         }
-        XCTAssertFalse(PushPages.isHome(nil, rootURL: root))
+        XCTAssertFalse(PushPages.allows(nil, rootURL: root))
     }
 }
 
