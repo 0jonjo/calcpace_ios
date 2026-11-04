@@ -334,6 +334,45 @@ final class SyncPlanTests: XCTestCase {
         let now = Date(timeIntervalSince1970: 1_800_000_000)
         XCTAssertEqual(SyncPlan.initialStart(now: now), now.addingTimeInterval(-30 * 86400))
     }
+
+    // Three years before the initial read, 90 days at a time, newest first;
+    // the last window stops at the floor, and then there is none.
+    func testTheHistoryGoesBackThreeYearsNinetyDaysAtATime() {
+        let start = Date(timeIntervalSince1970: 1_800_000_000)
+        var history = SyncPlan.history(from: start)
+        XCTAssertEqual(history.floor, start.addingTimeInterval(-1095 * 86400))
+
+        var windows: [DateInterval] = []
+        while let window = SyncPlan.historyWindow(history) {
+            windows.append(window)
+            history = SyncPlan.History(edge: window.start, floor: history.floor)
+        }
+        XCTAssertEqual(windows.count, 13)
+        XCTAssertEqual(windows.first, DateInterval(start: start.addingTimeInterval(-90 * 86400), end: start))
+        XCTAssertEqual(windows.last?.start, history.floor)
+        XCTAssertEqual(windows.last?.duration, 15 * 86400)
+        for (newer, older) in zip(windows, windows.dropFirst()) {
+            XCTAssertEqual(older.end, newer.start, "no gap, no overlap")
+        }
+        XCTAssertNil(SyncPlan.historyWindow(SyncPlan.History(edge: history.floor.addingTimeInterval(-1), floor: history.floor)))
+    }
+
+    func testAHistoryPassAtMostEveryTenMinutes() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        XCTAssertTrue(SyncPlan.historyDue(last: nil, now: now))
+        XCTAssertFalse(SyncPlan.historyDue(last: now.addingTimeInterval(-599), now: now))
+        XCTAssertTrue(SyncPlan.historyDue(last: now.addingTimeInterval(-600), now: now))
+        XCTAssertTrue(SyncPlan.historyDue(last: now.addingTimeInterval(60), now: now), "a clock set back")
+    }
+
+    // An account without a profile yet keeps its history for later.
+    func testAHistoryWindowRefusedForWantOfAProfileIsKept() {
+        XCTAssertEqual(SyncPlan.historyAfter(409), .retry)
+        XCTAssertEqual(SyncPlan.historyAfter(200), .advance)
+        XCTAssertEqual(SyncPlan.historyAfter(422), .advance)
+        XCTAssertEqual(SyncPlan.historyAfter(401), .unlink)
+        XCTAssertEqual(SyncPlan.historyAfter(429), .retry)
+    }
 }
 
 final class LinkGateTests: XCTestCase {
@@ -449,6 +488,21 @@ final class HealthLinkStoreTests: XCTestCase {
         store.save(anchor: nil, pending: list, for: "second")
         store.clear()
         XCTAssertEqual(store.pending, [:])
+    }
+
+    func testTheHistoryIsKeptPerLink() {
+        let history = SyncPlan.history(from: Date(timeIntervalSince1970: 1_800_000_000))
+        store.link(token: "first")
+        XCTAssertNil(store.history)
+        store.save(history: history, for: "other")
+        XCTAssertNil(store.history, "not this link's")
+        store.save(history: history, for: "first")
+        XCTAssertEqual(store.history, history)
+        store.link(token: "second")
+        XCTAssertNil(store.history, "a new link starts afresh")
+        store.save(history: history, for: "second")
+        store.clear()
+        XCTAssertNil(store.history)
     }
 
     func testAFreshInstallStartsUnlinked() {

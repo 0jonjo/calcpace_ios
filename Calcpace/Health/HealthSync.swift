@@ -5,7 +5,8 @@ import UIKit
 /// Sends what Apple Health holds to the site, for the account whose token
 /// the page handed over (AppleHealthComponent "link"):
 ///
-/// - right after the link (the last 30 days), each time the app comes to the
+/// - right after the link (the last 30 days, then the runs before them,
+///   a few months a sync: SyncPlan.History), each time the app comes to the
 ///   front, and whenever HealthKit wakes the app for a new workout or route
 ///   (`HKObserverQuery` + background delivery, at most hourly, often later);
 /// - what changed since the anchor of the last sync the server answered,
@@ -31,6 +32,7 @@ actor HealthSync {
     private var uploader: HealthUploader
     private var current: Task<Outcome, Never>?
     private var observers: [HKObserverQuery] = []
+    private var lastHistory: Date?
 
     /// A new workout, and a route its app saved after it (PendingWorkouts).
     private static let observedTypes: [HKSampleType] = [HealthReader.workoutType, HealthReader.routeType]
@@ -96,9 +98,10 @@ actor HealthSync {
         guard let token = links.token else { return .unlinked }
 
         let anchor = links.anchor
+        let initialStart = SyncPlan.initialStart(now: Date())
         let changes: HealthChanges
         do {
-            changes = try await reader.changes(since: anchor, startingAfter: SyncPlan.initialStart(now: Date()))
+            changes = try await reader.changes(since: anchor, startingAfter: initialStart)
         } catch {
             // The phone is locked (Apple Health is encrypted then), or no
             // permission was ever answered: next time.
@@ -150,7 +153,55 @@ actor HealthSync {
         case .unlink: if links.token == token { await forget() }
         case .retry: break
         }
+        if overall == .advance, await Self.onScreen, SyncPlan.historyDue(last: lastHistory, now: Date()) {
+            lastHistory = Date()
+            await readHistory(token: token, from: links.history ?? SyncPlan.history(from: initialStart))
+        }
         return .sent(overall)
+    }
+
+    /// The runs before the initial read, a window at a time, newest first
+    /// (SyncPlan.History). Sent as initial: no run of months ago buzzes the
+    /// phone. A window is read again until the server took all of it; walks
+    /// stay out, so years of them do not pile up in the account.
+    private func readHistory(token: String, from start: SyncPlan.History) async {
+        var history = start
+        for _ in 0 ..< SyncPlan.historyStepsPerSync {
+            guard let window = SyncPlan.historyWindow(history),
+                  let runs = try? await reader.runs(in: window)
+            else { return }
+            var sessions: [WireSession] = []
+            for run in runs {
+                // A run never sent for want of its distance or clock stays out:
+                // months later, nothing more will come for it.
+                if case let .ready(session, _) = WorkoutMapper.judge(await reader.facts(run)) {
+                    sessions.append(session)
+                }
+            }
+            var afters: [SyncPlan.After] = []
+            for upload in HealthPayload.batches(sessions: sessions, deleted: [], initial: true) {
+                guard links.token == token else { return }
+                let after = SyncPlan.historyAfter(await uploader.send(upload, token: token))
+                afters.append(after)
+                if after != .advance { break }
+            }
+            switch SyncPlan.overall(afters) {
+            case .advance:
+                history = SyncPlan.History(edge: window.start, floor: history.floor)
+                links.save(history: history, for: token)
+            case .unlink:
+                if links.token == token { await forget() }
+                return
+            case .retry:
+                return
+            }
+        }
+    }
+
+    /// The app in front, so the phone is unlocked and Apple Health readable.
+    @MainActor
+    private static var onScreen: Bool {
+        UIApplication.shared.applicationState == .active && UIApplication.shared.isProtectedDataAvailable
     }
 
     private func enableBackgroundDelivery() async {

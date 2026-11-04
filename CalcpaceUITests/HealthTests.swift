@@ -1,7 +1,7 @@
 import XCTest
 
 // Apple Health without the site: the app's harness (HealthHarness, debug
-// builds only) writes five workouts to the simulator's Apple Health, links
+// builds only) writes eight workouts to the simulator's Apple Health, links
 // with a made-up token and syncs against a fake server in its own process.
 // This test answers the HealthKit sheet and reads what the harness saw.
 final class HealthTests: XCTestCase {
@@ -43,6 +43,10 @@ final class HealthTests: XCTestCase {
         XCTAssertTrue(words.contains("deleted=true"), status.label)
         XCTAssertTrue(words.contains("unlinked=true"), status.label)
         XCTAssertTrue(words.contains("bearer=true"), status.label)
+        // Before the 30 days: the run of 41 days ago, not the walk, nor the
+        // run of four years ago; as initial, so no notification.
+        XCTAssertTrue(words.contains("history=100"), status.label)
+        XCTAssertTrue(words.contains("historyinitial=true"), status.label)
     }
 
     // HealthKit's sheet, drawn inside the app: turn every type on, then
