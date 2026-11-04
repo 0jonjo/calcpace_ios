@@ -36,16 +36,21 @@ final class HealthReader {
     }
 
     /// Every workout since `anchor`; with none, those that started after `start`.
+    /// The first read asks for every workout and keeps the recent ones here:
+    /// with a date predicate, HealthKit's anchor stops at the last workout
+    /// that matched, and every older one saved after it would come back on
+    /// the next sync as if new (the history's runs, years of walks).
     func changes(since anchor: HKQueryAnchor?, startingAfter start: Date?) async throws -> HealthChanges {
-        let predicate = anchor == nil ? start.map { HKQuery.predicateForSamples(withStart: $0, end: nil, options: .strictStartDate) } : nil
+        let since = anchor == nil ? start : nil
         return try await withCheckedThrowingContinuation { continuation in
-            let query = HKAnchoredObjectQuery(type: Self.workoutType, predicate: predicate, anchor: anchor, limit: HKObjectQueryNoLimit) { _, samples, deleted, newAnchor, error in
+            let query = HKAnchoredObjectQuery(type: Self.workoutType, predicate: nil, anchor: anchor, limit: HKObjectQueryNoLimit) { _, samples, deleted, newAnchor, error in
                 if let error {
                     continuation.resume(throwing: error)
                     return
                 }
+                let workouts = (samples ?? []).compactMap { $0 as? HKWorkout }
                 continuation.resume(returning: HealthChanges(
-                    workouts: (samples ?? []).compactMap { $0 as? HKWorkout },
+                    workouts: since.map { since in workouts.filter { $0.startDate >= since } } ?? workouts,
                     deleted: (deleted ?? []).map { WorkoutMapper.id($0.uuid) },
                     anchor: newAnchor
                 ))
