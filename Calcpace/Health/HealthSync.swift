@@ -32,6 +32,7 @@ actor HealthSync {
     private var uploader: HealthUploader
     private var current: Task<Outcome, Never>?
     private var observers: [HKObserverQuery] = []
+    private var lastHistory: Date?
 
     /// A new workout, and a route its app saved after it (PendingWorkouts).
     private static let observedTypes: [HKSampleType] = [HealthReader.workoutType, HealthReader.routeType]
@@ -152,7 +153,8 @@ actor HealthSync {
         case .unlink: if links.token == token { await forget() }
         case .retry: break
         }
-        if overall == .advance {
+        if overall == .advance, await Self.onScreen, SyncPlan.historyDue(last: lastHistory, now: Date()) {
+            lastHistory = Date()
             await readHistory(token: token, from: links.history ?? SyncPlan.history(from: initialStart))
         }
         return .sent(overall)
@@ -179,7 +181,7 @@ actor HealthSync {
             var afters: [SyncPlan.After] = []
             for upload in HealthPayload.batches(sessions: sessions, deleted: [], initial: true) {
                 guard links.token == token else { return }
-                let after = SyncPlan.after(await uploader.send(upload, token: token))
+                let after = SyncPlan.historyAfter(await uploader.send(upload, token: token))
                 afters.append(after)
                 if after != .advance { break }
             }
@@ -194,6 +196,12 @@ actor HealthSync {
                 return
             }
         }
+    }
+
+    /// The app in front, so the phone is unlocked and Apple Health readable.
+    @MainActor
+    private static var onScreen: Bool {
+        UIApplication.shared.applicationState == .active && UIApplication.shared.isProtectedDataAvailable
     }
 
     private func enableBackgroundDelivery() async {

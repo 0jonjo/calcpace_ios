@@ -356,6 +356,23 @@ final class SyncPlanTests: XCTestCase {
         }
         XCTAssertNil(SyncPlan.historyWindow(SyncPlan.History(edge: history.floor.addingTimeInterval(-1), floor: history.floor)))
     }
+
+    func testAHistoryPassAtMostEveryTenMinutes() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        XCTAssertTrue(SyncPlan.historyDue(last: nil, now: now))
+        XCTAssertFalse(SyncPlan.historyDue(last: now.addingTimeInterval(-599), now: now))
+        XCTAssertTrue(SyncPlan.historyDue(last: now.addingTimeInterval(-600), now: now))
+        XCTAssertTrue(SyncPlan.historyDue(last: now.addingTimeInterval(60), now: now), "a clock set back")
+    }
+
+    // An account without a profile yet keeps its history for later.
+    func testAHistoryWindowRefusedForWantOfAProfileIsKept() {
+        XCTAssertEqual(SyncPlan.historyAfter(409), .retry)
+        XCTAssertEqual(SyncPlan.historyAfter(200), .advance)
+        XCTAssertEqual(SyncPlan.historyAfter(422), .advance)
+        XCTAssertEqual(SyncPlan.historyAfter(401), .unlink)
+        XCTAssertEqual(SyncPlan.historyAfter(429), .retry)
+    }
 }
 
 final class LinkGateTests: XCTestCase {
