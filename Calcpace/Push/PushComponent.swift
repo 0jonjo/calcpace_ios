@@ -4,7 +4,8 @@ import UserNotifications
 
 /// The site's "push" bridge component (bridge/push_controller.js: the home
 /// page's "your run is in" card, and Settings' "Notifications" row and page),
-/// as in the Android app (PushComponent.kt). "connect" and "enable" are
+/// as in the Android app (PushComponent.kt, which still answers on the home
+/// page only until its next build). "connect" and "enable" are
 /// answered with `{ status, token? }`:
 /// the phone's `PushStatus` and, once the athlete has allowed notifications,
 /// the APNs device token (`PushToken`), which the page registers against its
@@ -14,8 +15,8 @@ import UserNotifications
 /// - "enable" `{}`: the athlete tapped "turn on". Shows the system prompt
 ///   (only the first time: iOS never asks twice), then answers like
 ///   "connect".
-/// - "openSettings" `{}`: the athlete was refused and tapped "open phone
-///   settings". Opens this app's notification settings; no answer: the page
+/// - "openSettings" `{}`: the athlete refused notifications and tapped
+///   "open phone settings". Opens this app's notification settings; no answer: the page
 ///   asks again ("connect") when it is back on screen.
 ///
 /// With "granted" the app asks iOS for the token and answers once it comes,
@@ -52,13 +53,12 @@ final class PushComponent: BridgeComponent {
         PushPages.allows(delegate?.webView?.url, rootURL: AppDelegate.rootURL)
     }
 
-    // Straight to this app's notification switches (iOS 16+), not the
-    // app's whole settings page.
+    // This app's notification settings (iOS 16+; some iOS versions land on
+    // the app's settings page instead, one tap away). BridgeComponent is
+    // @MainActor, so this already runs on the main thread.
     private func openSettings() {
         guard let url = URL(string: UIApplication.openNotificationSettingsURLString) else { return }
-        Task { @MainActor in
-            UIApplication.shared.open(url)
-        }
+        UIApplication.shared.open(url)
     }
 
     private func enable(_ message: Message) {

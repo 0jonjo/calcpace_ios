@@ -65,7 +65,8 @@ final class PushPagesTests: XCTestCase {
     func testSettingsAndItsNotificationsPageInAnyLanguage() {
         for location in ["https://calcpace.app/settings", "https://calcpace.app/pt-BR/settings",
                          "https://calcpace.app/settings/notifications", "https://calcpace.app/zh-TW/settings/notifications",
-                         "https://calcpace.app/settings/notifications/", "https://calcpace.app/settings?x=1"] {
+                         "https://calcpace.app/settings/notifications/", "https://calcpace.app/settings?x=1",
+                         "https://calcpace.app/pt-BR/settings/", "https://calcpace.app/pt-BR/settings/notifications#top"] {
             XCTAssertTrue(PushPages.allows(URL(string: location), rootURL: root), location)
         }
     }

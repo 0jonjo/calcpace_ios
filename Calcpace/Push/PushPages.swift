@@ -6,9 +6,9 @@ import Foundation
 /// (settings/_notifications_row, settings/notifications/show). Nowhere else.
 /// The WebView's JavaScript bridge is reachable from any frame on any page,
 /// so a message from elsewhere is ignored rather than allowed to raise the
-/// system prompt or collect the device token. The Android app's PushPages,
-/// and the same plain prefix match as HealthPages: anything unusual fails
-/// closed.
+/// system prompt or collect the device token. The Android app's PushPages
+/// (home only until its next build), and the same plain prefix match as
+/// HealthPages: anything unusual fails closed.
 enum PushPages {
     private static let allowed = try! NSRegularExpression(
         pattern: "^(?:/(?:\(SharePages.locales)))?(?:/settings(?:/notifications)?)?/?$"
