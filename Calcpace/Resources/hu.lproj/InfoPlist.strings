@@ -6,6 +6,7 @@
 
 /* Location permission (Recorder): recorder_perm_location_hint. */
 "NSLocationWhenInUseUsageDescription" = "A távolság és a tempó méréséhez. Csak rögzítés közben.";
+"NSLocationAlwaysAndWhenInUseUsageDescription" = "A távolság és a tempó méréséhez. Csak rögzítés közben.";
 /* Precise location for one session (Recorder.fullAccuracyPurpose). */
 "RunRecording" = "A távolság és a tempó méréséhez. Csak rögzítés közben.";
 /* The app icon's quick action: recorder_shortcut_long. */

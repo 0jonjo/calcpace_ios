@@ -25,8 +25,9 @@ final class RecorderTests: XCTestCase {
         XCTAssertTrue(primary.waitForExistence(timeout: 20), "no recording screen")
         attachScreenshot(of: app, named: "recorder-ready")
 
-        // Natal, northwards along the beach: 600 m.
-        try "-5.8400,-35.1960 -5.8346,-35.1960".write(to: relay.appendingPathComponent("location.route"), atomically: true, encoding: .utf8)
+        // 600 m northwards, in Lisbon: a waypoint starting with "-" would
+        // read as an option to simctl.
+        try "38.7000,-9.1400 38.7054,-9.1400".write(to: relay.appendingPathComponent("location.route"), atomically: true, encoding: .utf8)
         primary.tap()
         allowLocation(in: app)
 

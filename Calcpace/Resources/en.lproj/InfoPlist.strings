@@ -6,6 +6,7 @@
 
 /* Location permission (Recorder): recorder_perm_location_hint. */
 "NSLocationWhenInUseUsageDescription" = "To measure distance and pace. Only while you record.";
+"NSLocationAlwaysAndWhenInUseUsageDescription" = "To measure distance and pace. Only while you record.";
 /* Precise location for one session (Recorder.fullAccuracyPurpose). */
 "RunRecording" = "To measure distance and pace. Only while you record.";
 /* The app icon's quick action: recorder_shortcut_long. */

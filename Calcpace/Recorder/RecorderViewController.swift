@@ -71,7 +71,6 @@ final class RecorderViewController: UIViewController {
         center.addObserver(self, selector: #selector(changed), name: .recorderChanged, object: nil)
         center.addObserver(self, selector: #selector(changed), name: .recorderUploadsChanged, object: nil)
         center.addObserver(self, selector: #selector(cameBack), name: UIApplication.didBecomeActiveNotification, object: nil)
-        recorder.watch()
         uploads.onArrival = { [weak self] arrival in self?.arrived(arrival) ?? false }
         uploads.kick()
         readNotificationStatus()
@@ -86,7 +85,6 @@ final class RecorderViewController: UIViewController {
     override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
         NotificationCenter.default.removeObserver(self)
-        recorder.unwatch()
         uploads.onArrival = nil
         timer?.invalidate()
         timer = nil

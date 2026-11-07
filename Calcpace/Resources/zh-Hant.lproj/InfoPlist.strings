@@ -6,6 +6,7 @@
 
 /* Location permission (Recorder): recorder_perm_location_hint. */
 "NSLocationWhenInUseUsageDescription" = "用來測量距離和配速，只在記錄時使用。";
+"NSLocationAlwaysAndWhenInUseUsageDescription" = "用來測量距離和配速，只在記錄時使用。";
 /* Precise location for one session (Recorder.fullAccuracyPurpose). */
 "RunRecording" = "用來測量距離和配速，只在記錄時使用。";
 /* The app icon's quick action: recorder_shortcut_long. */

@@ -70,14 +70,11 @@ final class Recorder: NSObject {
     private(set) var problem: Problem?
     /// The last run saved since launch: the screen follows its upload.
     private(set) var finished: Outbox.Entry?
-    /// The latest position Core Location gave, recording or not.
-    private(set) var lastLocation: CLLocation?
     /// Whether location services are on for the whole phone (read off the main thread).
     private(set) var servicesEnabled = true
 
     private var logged: Track?
     private var loggedRead = false
-    private var watchers = 0
     private var backgroundSession: CLBackgroundActivitySession?
     private var timer: Timer?
     private var watchdogAt: Date?
@@ -113,7 +110,7 @@ final class Recorder: NSObject {
 
     /// The time the run in the log ends: its last event, not now.
     func lastEventAt(_ track: Track?) -> Int64 {
-        [track?.lastFixAt, track?.pausedAt, track?.startedAt].compactMap { $0 }.max() ?? Self.now()
+        [track?.lastFixAt, track?.pausedAt, track?.runningSince, track?.startedAt].compactMap { $0 }.max() ?? Self.now()
     }
 
     /// Since the last fix, or since the run started or resumed when none came since.
@@ -123,17 +120,6 @@ final class Recorder: NSObject {
     }
 
     // MARK: What the screen does
-
-    /// The screen is up: the GPS warms up before Start (and shows its accuracy).
-    func watch() {
-        watchers += 1
-        updateLocation()
-    }
-
-    func unwatch() {
-        watchers = max(watchers - 1, 0)
-        updateLocation()
-    }
 
     func requestLocation() {
         manager.requestWhenInUseAuthorization()
@@ -169,7 +155,7 @@ final class Recorder: NSObject {
         finished = nil
         updateLocation()
         startTimer()
-        pushWatchdog(force: true)
+        if live?.isRunning == true { pushWatchdog(force: true) }
         changed()
     }
 
@@ -184,7 +170,7 @@ final class Recorder: NSObject {
         guard let live, live.isPaused, canLocate else { return }
         problem = nil
         record(.resume(time: Self.now()))
-        pushWatchdog(force: true)
+        if live.isRunning { pushWatchdog(force: true) }
         changed()
     }
 
@@ -280,8 +266,9 @@ final class Recorder: NSObject {
         updateLocation()
     }
 
-    /// GPS on while a run is on (in the background too), or while the screen
-    /// is up and allowed to: off otherwise.
+    /// GPS on while a run is on (in the background too), off otherwise: the
+    /// location is read only between Start and Finish, as the permission
+    /// text says.
     private func updateLocation() {
         let recording = live != nil
         manager.allowsBackgroundLocationUpdates = recording
@@ -292,7 +279,7 @@ final class Recorder: NSObject {
             backgroundSession?.invalidate()
             backgroundSession = nil
         }
-        if canLocate && (recording || watchers > 0) {
+        if canLocate && recording {
             manager.startUpdatingLocation()
         } else {
             manager.stopUpdatingLocation()
@@ -380,21 +367,22 @@ extension Recorder: CLLocationManagerDelegate {
     }
 
     private func received(_ locations: [CLLocation]) {
-        let now = Date()
+        guard let live else { return }
         for location in locations {
-            // A position iOS kept from before (the first one it hands over)
-            // or one it couldn't place.
-            guard location.horizontalAccuracy >= 0, now.timeIntervalSince(location.timestamp) < 10 else { continue }
-            lastLocation = location
-            guard let live, live.isRunning else { continue }
+            // One iOS couldn't place, or one from before this stretch began
+            // (the position it kept from earlier, handed over first). A batch
+            // iOS held back and delivers late is kept: its times are its own.
+            let time = Self.millis(location.timestamp)
+            guard location.horizontalAccuracy >= 0, live.isRunning,
+                  let since = live.runningSince, time >= since - 1000
+            else { continue }
             record(.fix(RunFix(
-                time: Self.millis(location.timestamp),
+                time: time,
                 lat: location.coordinate.latitude,
                 lon: location.coordinate.longitude,
                 altitude: location.verticalAccuracy > 0 ? location.altitude : nil,
                 accuracy: location.horizontalAccuracy
             )))
         }
-        if live == nil { changed() }
     }
 }

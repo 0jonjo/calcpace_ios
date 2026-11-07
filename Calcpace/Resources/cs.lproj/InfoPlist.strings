@@ -6,6 +6,7 @@
 
 /* Location permission (Recorder): recorder_perm_location_hint. */
 "NSLocationWhenInUseUsageDescription" = "K měření vzdálenosti a tempa. Jen během nahrávání.";
+"NSLocationAlwaysAndWhenInUseUsageDescription" = "K měření vzdálenosti a tempa. Jen během nahrávání.";
 /* Precise location for one session (Recorder.fullAccuracyPurpose). */
 "RunRecording" = "K měření vzdálenosti a tempa. Jen během nahrávání.";
 /* The app icon's quick action: recorder_shortcut_long. */

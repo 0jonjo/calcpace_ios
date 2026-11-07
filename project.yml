@@ -82,6 +82,9 @@ targets:
         # the Android app); RunRecording is the purpose key for precise
         # location when the athlete turned it off.
         NSLocationWhenInUseUsageDescription: "To measure distance and pace. Only while you record."
+        # Never asked for (when in use is enough), but App Store validation
+        # may want it beside the location background mode.
+        NSLocationAlwaysAndWhenInUseUsageDescription: "To measure distance and pace. Only while you record."
         NSLocationTemporaryUsageDescriptionDictionary:
           RunRecording: "To measure distance and pace. Only while you record."
         # fetch: the background refresh that uploads runs recorded offline

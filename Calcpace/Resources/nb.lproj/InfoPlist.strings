@@ -6,6 +6,7 @@
 
 /* Location permission (Recorder): recorder_perm_location_hint. */
 "NSLocationWhenInUseUsageDescription" = "For å måle distanse og tempo. Bare mens du registrerer.";
+"NSLocationAlwaysAndWhenInUseUsageDescription" = "For å måle distanse og tempo. Bare mens du registrerer.";
 /* Precise location for one session (Recorder.fullAccuracyPurpose). */
 "RunRecording" = "For å måle distanse og tempo. Bare mens du registrerer.";
 /* The app icon's quick action: recorder_shortcut_long. */

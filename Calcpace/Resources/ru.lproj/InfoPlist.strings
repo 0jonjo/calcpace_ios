@@ -6,6 +6,7 @@
 
 /* Location permission (Recorder): recorder_perm_location_hint. */
 "NSLocationWhenInUseUsageDescription" = "Чтобы измерять дистанцию и темп. Только во время записи.";
+"NSLocationAlwaysAndWhenInUseUsageDescription" = "Чтобы измерять дистанцию и темп. Только во время записи.";
 /* Precise location for one session (Recorder.fullAccuracyPurpose). */
 "RunRecording" = "Чтобы измерять дистанцию и темп. Только во время записи.";
 /* The app icon's quick action: recorder_shortcut_long. */
