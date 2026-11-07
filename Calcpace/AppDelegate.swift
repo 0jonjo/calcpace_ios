@@ -23,7 +23,13 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         // them, so the site only talks to components this build has.
         // "apple-sign-in" is only listed: it tells the site this build has
         // Sign in with Apple, so it may show the social sign-in buttons.
-        Hotwire.registerBridgeComponents([ShareImageComponent.self, AppleHealthComponent.self, PushComponent.self, AppleSignInComponent.self])
+        // "recorder" is only listed too: it tells the site this build records
+        // runs, so the bar's middle becomes Record (RecordRouteDecisionHandler).
+        Hotwire.registerBridgeComponents([ShareImageComponent.self, AppleHealthComponent.self, PushComponent.self, AppleSignInComponent.self, RecorderComponent.self])
+
+        // Before launch finishes, or iOS never hands the task over: the runs
+        // recorded and not yet up go with the app closed.
+        RecorderUploads.registerBackgroundTask()
 
         // Before launch finishes, or a tap on a notification that launched
         // the app is never delivered.
@@ -75,13 +81,14 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
 
     // Order matters: the first handler that matches decides. The sign-in
     // hand-off's paths are guarded before anything else can take them
-    // (AppAuthRouteDecisionHandler), and the runs list's CSV export must be
-    // caught before in-app navigation claims every calcpace.app URL. The
-    // other three are Hotwire's defaults.
+    // (AppAuthRouteDecisionHandler), and the runs list's CSV export and the
+    // bar's Record must be caught before in-app navigation claims every
+    // calcpace.app URL. The other three are Hotwire's defaults.
     nonisolated static var routeDecisionHandlers: [RouteDecisionHandler] {
         [
             AppAuthRouteDecisionHandler(),
             CsvExportRouteDecisionHandler(),
+            RecordRouteDecisionHandler(),
             AppNavigationRouteDecisionHandler(),
             SafariViewControllerRouteDecisionHandler(),
             SystemNavigationRouteDecisionHandler()

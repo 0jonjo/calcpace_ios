@@ -25,9 +25,19 @@ final class PushNotifications: NSObject, UNUserNotificationCenterDelegate {
 
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
         defer { completionHandler() }
-        guard response.actionIdentifier == UNNotificationDefaultActionIdentifier,
-              let notice = PushPayload.parse(response.notification.request.content.userInfo, rootURL: rootURL)
-        else { return }
+        guard response.actionIdentifier == UNNotificationDefaultActionIdentifier else { return }
+        let userInfo = response.notification.request.content.userInfo
+        // The recorder's own: "recording stopped" opens its screen, "your
+        // run is up" the run's edit page (RecorderNotices).
+        if RecorderNotices.opensRecorder(userInfo) {
+            Task { @MainActor in RecorderScreen.open() }
+            return
+        }
+        if let url = RecorderNotices.url(from: userInfo, rootURL: rootURL) {
+            Task { @MainActor in PushInbox.shared.open(url) }
+            return
+        }
+        guard let notice = PushPayload.parse(userInfo, rootURL: rootURL) else { return }
 
         let url = notice.url
         Task { @MainActor in PushInbox.shared.open(url) }

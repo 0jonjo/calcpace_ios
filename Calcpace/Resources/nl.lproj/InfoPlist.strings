@@ -3,3 +3,11 @@
 
 /* Required by App Store validation next to the read text, although the app only reads (HealthReader). */
 "NSHealthUpdateUsageDescription" = "Calcpace slaat niets op in de Gezondheid-app.";
+
+/* Location permission (Recorder): recorder_perm_location_hint. */
+"NSLocationWhenInUseUsageDescription" = "Om afstand en tempo te meten. Alleen tijdens het vastleggen.";
+"NSLocationAlwaysAndWhenInUseUsageDescription" = "Om afstand en tempo te meten. Alleen tijdens het vastleggen.";
+/* Precise location for one session (Recorder.fullAccuracyPurpose). */
+"RunRecording" = "Om afstand en tempo te meten. Alleen tijdens het vastleggen.";
+/* The app icon's quick action: recorder_shortcut_long. */
+"Record a run" = "Run vastleggen";

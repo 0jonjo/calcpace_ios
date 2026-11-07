@@ -96,6 +96,8 @@ jobs:
       # The push relay: PushTests leaves an APNs payload in PUSH_DIR (handed
       # to the test runner through TEST_RUNNER_PUSH_DIR) and the relay
       # delivers it with simctl, which nothing inside the simulator can run.
+      # The same relay walks the simulator along RecorderTests' route
+      # (location.route: "lat,lon lat,lon", at 5 m/s, a fix a second).
       #
       # The demo account (DemoAccountTests): on a push to main or a run by
       # hand, never a pull request's, its secrets go into a file outside
@@ -135,6 +137,14 @@ jobs:
                 mv "$push_dir/push.apns" "$push_dir/sending.apns"
                 echo "$(date +%T) pushing $(cat "$push_dir/sending.apns")"
                 xcrun simctl push "$SIMULATOR" app.calcpace.ios "$push_dir/sending.apns" || echo "simctl push failed"
+              fi
+              if [ -f "$push_dir/location.route" ]; then
+                mv "$push_dir/location.route" "$push_dir/route.sending"
+                echo "$(date +%T) location along $(cat "$push_dir/route.sending")"
+                # One waypoint a line on stdin ("-"): as arguments, a
+                # southern latitude ("-5.84,…") reads as an option.
+                tr ' ' '\n' < "$push_dir/route.sending" |
+                  xcrun simctl location "$SIMULATOR" start --speed=5 --interval=1 - || echo "simctl location failed"
               fi
               sleep 0.5
             done
