@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>recorder_queue_count</key>
+  <dict>
+    <key>NSStringLocalizedFormatKey</key>
+    <string>%#@count@</string>
+    <key>count</key>
+    <dict>
+      <key>NSStringFormatSpecTypeKey</key>
+      <string>NSStringPluralRuleType</string>
+      <key>NSStringFormatValueTypeKey</key>
+      <string>d</string>
+      <key>one</key>
+      <string>%d corsa salvata sul telefono, in attesa di invio.</string>
+      <key>many</key>
+      <string>%d corse salvate sul telefono, in attesa di invio.</string>
+      <key>other</key>
+      <string>%d corse salvate sul telefono, in attesa di invio.</string>
+    </dict>
+  </dict>
+</dict>
+</plist>

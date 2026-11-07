@@ -3,3 +3,10 @@
 
 /* Required by App Store validation next to the read text, although the app only reads (HealthReader). */
 "NSHealthUpdateUsageDescription" = "Calcpace はヘルスケアAppに何も書き込みません。";
+
+/* Location permission (Recorder): recorder_perm_location_hint. */
+"NSLocationWhenInUseUsageDescription" = "距離とペースを測るためです。記録中だけ使います。";
+/* Precise location for one session (Recorder.fullAccuracyPurpose). */
+"RunRecording" = "距離とペースを測るためです。記録中だけ使います。";
+/* The app icon's quick action: recorder_shortcut_long. */
+"Record a run" = "ランを記録";

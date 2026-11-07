@@ -75,6 +75,25 @@ targets:
         # builds, ever asks to write.
         NSHealthUpdateUsageDescription: "Calcpace doesn't write anything to the Health app."
         NSHealthShareUsageDescription: "Calcpace imports the runs and walks your Apple Watch and running apps (Strava, Nike, Garmin, adidas) save to the Health app. We read only the time, distance, duration, climb, heart rate and route of those workouts."
+        # The run recorder (Calcpace/Recorder): location while using the app,
+        # kept on with the screen locked by the location background mode
+        # (and a CLBackgroundActivitySession) only between Start and Finish.
+        # Translated in each InfoPlist.strings (recorder_perm_location_hint of
+        # the Android app); RunRecording is the purpose key for precise
+        # location when the athlete turned it off.
+        NSLocationWhenInUseUsageDescription: "To measure distance and pace. Only while you record."
+        NSLocationTemporaryUsageDescriptionDictionary:
+          RunRecording: "To measure distance and pace. Only while you record."
+        # fetch: the background refresh that uploads runs recorded offline
+        # with the app closed (RecorderUploads.taskId).
+        UIBackgroundModes: [location, fetch]
+        BGTaskSchedulerPermittedIdentifiers: [app.calcpace.ios.recorder-upload]
+        # The app icon's long press: "Record a run" (RecorderScreen); the
+        # title is the key of its translation in InfoPlist.strings.
+        UIApplicationShortcutItems:
+          - UIApplicationShortcutItemType: app.calcpace.ios.record
+            UIApplicationShortcutItemTitle: "Record a run"
+            UIApplicationShortcutItemIconSymbolName: figure.run
         # The site is light only: a dark clock everywhere, whatever iOS 26's
         # bars make of the page under them.
         UIViewControllerBasedStatusBarAppearance: false

@@ -23,6 +23,12 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             window?.makeKeyAndVisible()
             return
         }
+        // The UI tests' recorder run: the recording screen, no site.
+        if RecorderHarness.isOn {
+            window?.rootViewController = RecorderHarnessViewController()
+            window?.makeKeyAndVisible()
+            return
+        }
 #endif
         // The site has no dark mode: a phone in dark mode would otherwise get
         // black bars and sheets around white pages.
@@ -47,6 +53,21 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         if let location = connectionOptions.userActivities.lazy.compactMap({ Self.outsideLocation($0) }).first {
             navigator.route(location)
         }
+
+        // The recording screen over the site: asked for by the app icon's
+        // quick action that launched the app, a "recording stopped" tap
+        // that came first, or a run left on (iOS ended the app mid-run).
+        if connectionOptions.shortcutItem?.type == RecorderScreen.shortcutType {
+            RecorderScreen.open()
+        }
+        RecorderScreen.ready { [weak self] in self?.window?.rootViewController }
+    }
+
+    // The app icon's "Record a run" with the app running.
+    func windowScene(_ windowScene: UIWindowScene, performActionFor shortcutItem: UIApplicationShortcutItem, completionHandler: @escaping (Bool) -> Void) {
+        let isRecord = shortcutItem.type == RecorderScreen.shortcutType
+        if isRecord { RecorderScreen.open() }
+        completionHandler(isRecord)
     }
 
     // A link from outside with the app running: a calcpace.app page handed
@@ -72,15 +93,18 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     // scene's Navigator instead of reaching this one.
     func sceneDidDisconnect(_ scene: UIScene) {
         PushInbox.shared.disconnect()
+        RecorderScreen.disconnect()
     }
 
     // Each time the app comes to the front: what Apple Health got since,
     // sooner than a background delivery would bring it.
     func sceneDidBecomeActive(_ scene: UIScene) {
 #if DEBUG
-        if HealthHarness.isOn { return }
+        if HealthHarness.isOn || RecorderHarness.isOn { return }
 #endif
         Task { await HealthSync.shared.run() }
+        // Runs recorded and still on the phone: a sign-in may be what they waited for.
+        RecorderUploads.shared.kick()
     }
 
     private static func outsideLocation(_ activity: NSUserActivity) -> URL? {
