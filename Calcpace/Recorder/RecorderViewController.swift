@@ -226,8 +226,8 @@ final class RecorderViewController: UIViewController {
         }
         let more = entries.count > 1 ? "\n\n" + RecorderStrings.count("recorder_queue_count", entries.count) : ""
         let runDistance = dist(entry.distanceMeters)
-        let share = (RecorderStrings.text("recorder_share_gpx"), { [weak self] in self?.shareGpx(entry) })
-        let tryNow = (RecorderStrings.text("recorder_retry_now"), { [weak self] in self?.uploads.send(retryParked: true) })
+        let share: (String, () -> Void) = (RecorderStrings.text("recorder_share_gpx"), { [weak self] in self?.shareGpx(entry) })
+        let tryNow: (String, () -> Void) = (RecorderStrings.text("recorder_retry_now"), { [weak self] in self?.uploads.send(retryParked: true) })
         let card = UploadPlan.card(entry.state, sending: uploads.sendingId == entry.recordingId, online: uploads.online,
                                    attempted: entry.lastAttemptAt != nil)
         switch card {
