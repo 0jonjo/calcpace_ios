@@ -183,19 +183,27 @@ final class RecorderUploads {
     }
 
     private func upload(retryParked: Bool, retryRefused: Bool) async -> Result {
-        let entries = outbox.entries()
-        guard !entries.isEmpty else { return .settled }
-        // No answer from the cookie store: later, never "signed out".
-        guard let cookie = await sessionCookie() else { return .retry }
-        for entry in entries {
-            let due: Bool
+        let due = outbox.entries().filter { entry in
             switch entry.state {
-            case .pending: due = true
-            case .refused: due = retryRefused
-            case .signedOut, .noProfile: due = retryParked
+            case .pending: return true
+            case .refused: return retryRefused
+            case .signedOut, .noProfile: return retryParked
             }
-            guard due else { continue }
-
+        }
+        guard let first = due.first else { return .settled }
+        // No answer from the cookie store: later, never "signed out". The
+        // tap that asked for parked or refused runs still counts then, and
+        // the screen says it couldn't upload yet rather than "uploading".
+        guard let cookie = await sessionCookie() else {
+            self.retryParked = self.retryParked || retryParked
+            self.retryRefused = self.retryRefused || retryRefused
+            var tried = first
+            tried.lastAttemptAt = Recorder.now()
+            outbox.update(tried)
+            changed()
+            return .retry
+        }
+        for entry in due {
             let attempt = Recorder.now()
             sendingId = entry.recordingId
             changed()

@@ -49,7 +49,7 @@ final class RecorderTests: XCTestCase {
         // The screen redraws every second; a tap lost to a redraw is tapped again.
         primary.tap()
         let finish = app.buttons["recorder.finish"]
-        if !finish.waitForExistence(timeout: 5) { primary.tap() }
+        if !finish.waitForExistence(timeout: 5), !app.staticTexts["recorder.status"].label.hasPrefix("Paused") { primary.tap() }
         XCTAssertTrue(finish.waitForExistence(timeout: 5), "no Finish after Pause")
         attachScreenshot(of: app, named: "recorder-paused")
         finish.tap()
