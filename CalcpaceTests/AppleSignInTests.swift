@@ -43,7 +43,7 @@ final class AppleSignInTests: XCTestCase {
     func testTheUserAgentListsTheComponent() {
         let agent = Hotwire.config.userAgent
         XCTAssertTrue(agent.hasPrefix(AppUserAgent.prefix()), agent)
-        XCTAssertTrue(agent.hasSuffix("bridge-components: [share-image apple-health push apple-sign-in]"), agent)
+        XCTAssertTrue(agent.hasSuffix("bridge-components: [share-image apple-health push apple-sign-in recorder]"), agent)
     }
 }
 

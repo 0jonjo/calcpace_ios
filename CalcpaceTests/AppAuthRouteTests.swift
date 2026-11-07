@@ -114,12 +114,12 @@ final class AppAuthRouteTests: XCTestCase {
         }
     }
 
-    // First, before the CSV export and in-app navigation can claim an
-    // app_auth URL.
+    // First, before the CSV export, the recorder's /record and in-app
+    // navigation can claim an app_auth URL.
     func testItIsTheFirstRouteHandler() {
         let handlers = AppDelegate.routeDecisionHandlers
         XCTAssertTrue(handlers.first is AppAuthRouteDecisionHandler)
-        XCTAssertEqual(handlers.map(\.name).prefix(3), ["app-auth", "csv-export", "app-navigation"])
+        XCTAssertEqual(handlers.map(\.name).prefix(4), ["app-auth", "csv-export", "recorder", "app-navigation"])
     }
 }
 
