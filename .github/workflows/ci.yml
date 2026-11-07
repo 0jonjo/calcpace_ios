@@ -141,8 +141,10 @@ jobs:
               if [ -f "$push_dir/location.route" ]; then
                 mv "$push_dir/location.route" "$push_dir/route.sending"
                 echo "$(date +%T) location along $(cat "$push_dir/route.sending")"
-                # shellcheck disable=SC2046 # the waypoints are separate arguments
-                xcrun simctl location "$SIMULATOR" start --speed=5 --interval=1 $(cat "$push_dir/route.sending") || echo "simctl location failed"
+                # One waypoint a line on stdin ("-"): as arguments, a
+                # southern latitude ("-5.84,…") reads as an option.
+                tr ' ' '\n' < "$push_dir/route.sending" |
+                  xcrun simctl location "$SIMULATOR" start --speed=5 --interval=1 - || echo "simctl location failed"
               fi
               sleep 0.5
             done
