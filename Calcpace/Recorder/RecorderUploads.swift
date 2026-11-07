@@ -65,6 +65,7 @@ final class RecorderUploads {
     private let monitor = NWPathMonitor()
     private var baseURL = AppDelegate.rootURL
     private var session: URLSession = RecorderUploads.makeSession(.ephemeral)
+    private var cookieWaker: WKWebView?
 
     private var outbox: Outbox { Recorder.shared.files.outbox }
 
@@ -184,7 +185,8 @@ final class RecorderUploads {
     private func upload(retryParked: Bool, retryRefused: Bool) async -> Result {
         let entries = outbox.entries()
         guard !entries.isEmpty else { return .settled }
-        let cookie = await sessionCookie()
+        // No answer from the cookie store: later, never "signed out".
+        guard let cookie = await sessionCookie() else { return .retry }
         for entry in entries {
             let due: Bool
             switch entry.state {
@@ -257,12 +259,39 @@ final class RecorderUploads {
         if cameBack, !running, outbox.entries().contains(where: { $0.state == .pending }) { send() }
     }
 
-    // The WebView's cookies for the site, as a Cookie header ("" when signed out).
-    private func sessionCookie() async -> String {
+    // The WebView's cookies for the site, as a Cookie header ("" when signed
+    // out), or nil when the store didn't answer. With no WKWebView alive (a
+    // background refresh with no screen) the store may never call back, and
+    // an upload waiting on it would hold the queue for good: a web view of
+    // our own wakes it, and the wait has a limit.
+    private func sessionCookie() async -> String? {
+        if cookieWaker == nil { cookieWaker = WKWebView(frame: .zero) }
+        guard let all = await Self.allCookies(timeout: 15) else { return nil }
         let host = baseURL.host
-        let cookies = await WKWebsiteDataStore.default().httpCookieStore.allCookies()
-            .filter { CsvExport.cookie(for: $0.domain, isSentTo: host) }
+        let cookies = all.filter { CsvExport.cookie(for: $0.domain, isSentTo: host) }
         return HTTPCookie.requestHeaderFields(with: cookies)["Cookie"] ?? ""
+    }
+
+    private static func allCookies(timeout: TimeInterval) async -> [HTTPCookie]? {
+        await withCheckedContinuation { (continuation: CheckedContinuation<[HTTPCookie]?, Never>) in
+            let once = Once()
+            WKWebsiteDataStore.default().httpCookieStore.getAllCookies { cookies in
+                if once.claim() { continuation.resume(returning: cookies) }
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + timeout) {
+                if once.claim() { continuation.resume(returning: nil) }
+            }
+        }
+    }
+
+    // The first of the two callbacks (cookies, timeout) resumes; both run on the main thread.
+    private final class Once {
+        private var done = false
+        func claim() -> Bool {
+            if done { return false }
+            done = true
+            return true
+        }
     }
 
     // The status and the first bytes of the answer, or noAnswer when there was none.
