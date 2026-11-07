@@ -171,10 +171,15 @@ final class RecorderViewController: UIViewController {
         case .orphan: ("recorder_resume_run", Self.green)
         case .unsaved: ("recorder_finish_and_save", Self.green)
         }
-        primary.setTitle(RecorderStrings.text(key), for: .normal)
-        primary.backgroundColor = color
-        finishButton.isHidden = !(mode == .paused || mode == .orphan)
-        finishButton.setTitle(RecorderStrings.text(mode == .orphan ? "recorder_finish_and_save" : "recorder_finish"), for: .normal)
+        // Only when it changes: this runs every second, and a system button
+        // given its title again mid-tap can lose the tap.
+        let title = RecorderStrings.text(key)
+        if primary.title(for: .normal) != title { primary.setTitle(title, for: .normal) }
+        if primary.backgroundColor != color { primary.backgroundColor = color }
+        let hideFinish = !(mode == .paused || mode == .orphan)
+        if finishButton.isHidden != hideFinish { finishButton.isHidden = hideFinish }
+        let finishTitle = RecorderStrings.text(mode == .orphan ? "recorder_finish_and_save" : "recorder_finish")
+        if finishButton.title(for: .normal) != finishTitle { finishButton.setTitle(finishTitle, for: .normal) }
     }
 
     private func renderNotice(_ mode: Recorder.Mode, track: Track?, now: Int64) {
@@ -269,7 +274,7 @@ final class RecorderViewController: UIViewController {
         noticeActions = actions.map(\.1)
         for (index, button) in noticeButtons.enumerated() {
             button.isHidden = index >= actions.count
-            if index < actions.count { button.setTitle(actions[index].0, for: .normal) }
+            if index < actions.count, button.title(for: .normal) != actions[index].0 { button.setTitle(actions[index].0, for: .normal) }
         }
         noticeCard.isHidden = false
     }
@@ -718,7 +723,7 @@ final class RecorderPermissionCard: UIView {
     func show(title: String, body: String, button label: String, action: @escaping () -> Void) {
         self.title.text = title
         self.body.text = body
-        button.setTitle(label, for: .normal)
+        if button.title(for: .normal) != label { button.setTitle(label, for: .normal) }
         self.action = action
         isHidden = false
     }
