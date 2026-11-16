@@ -75,6 +75,13 @@ targets:
         # builds, ever asks to write.
         NSHealthUpdateUsageDescription: "Calcpace doesn't write anything to the Health app."
         NSHealthShareUsageDescription: "Calcpace imports the runs and walks your Apple Watch and running apps (Strava, Nike, Garmin, adidas) save to the Health app. We read only the time, distance, duration, climb, heart rate and route of those workouts."
+        # The web view's file fields (a run's photo, the avatar, a GPX/FIT
+        # file) offer "Take Photo or Video" and the photo library; iOS ends
+        # an app that opens the camera without these (App Review 16/11,
+        # guideline 2.1). Translated in each InfoPlist.strings.
+        NSCameraUsageDescription: "Calcpace uses the camera only when you choose to take a photo for a run or for your profile."
+        NSMicrophoneUsageDescription: "Calcpace uses the microphone only if you choose to film a video when attaching a file."
+        NSPhotoLibraryUsageDescription: "Calcpace opens your photos only when you choose one for a run or for your profile."
         # The site is light only: a dark clock everywhere, whatever iOS 26's
         # bars make of the page under them.
         UIViewControllerBasedStatusBarAppearance: false

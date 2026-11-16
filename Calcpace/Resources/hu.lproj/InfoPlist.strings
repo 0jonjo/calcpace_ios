@@ -3,3 +3,12 @@
 
 /* Required by App Store validation next to the read text, although the app only reads (HealthReader). */
 "NSHealthUpdateUsageDescription" = "A Calcpace semmit sem ment az Egészség appba.";
+
+/* The web view's file fields ("Take Photo or Video"): iOS ends an app that opens the camera without this. */
+"NSCameraUsageDescription" = "A Calcpace csak akkor használja a kamerát, ha fotót szeretnél készíteni egy futáshoz vagy a profilodhoz.";
+
+/* Filming a video from the same file fields. */
+"NSMicrophoneUsageDescription" = "A Calcpace csak akkor használja a mikrofont, ha fájl csatolásakor videót szeretnél felvenni.";
+
+/* Choosing a photo from the library in the same file fields. */
+"NSPhotoLibraryUsageDescription" = "A Calcpace csak akkor nyitja meg a fotóidat, ha kiválasztasz egyet egy futáshoz vagy a profilodhoz.";

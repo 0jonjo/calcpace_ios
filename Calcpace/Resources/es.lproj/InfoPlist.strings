@@ -3,3 +3,12 @@
 
 /* Required by App Store validation next to the read text, although the app only reads (HealthReader). */
 "NSHealthUpdateUsageDescription" = "Calcpace no guarda nada en la app Salud.";
+
+/* The web view's file fields ("Take Photo or Video"): iOS ends an app that opens the camera without this. */
+"NSCameraUsageDescription" = "Calcpace usa la cámara solo cuando eliges hacer una foto para una carrera o para tu perfil.";
+
+/* Filming a video from the same file fields. */
+"NSMicrophoneUsageDescription" = "Calcpace usa el micrófono solo si eliges grabar un vídeo al adjuntar un archivo.";
+
+/* Choosing a photo from the library in the same file fields. */
+"NSPhotoLibraryUsageDescription" = "Calcpace abre tus fotos solo cuando eliges una para una carrera o para tu perfil.";
