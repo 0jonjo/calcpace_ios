@@ -1,0 +1,1 @@
+Fix: attaching a photo or video from the camera (a run photo, your profile picture, a GPX file) no longer closes the app. Saving a run card image to Photos works too.

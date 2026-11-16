@@ -5,10 +5,13 @@
 "NSHealthUpdateUsageDescription" = "Calcpace 不會寫入任何資料到「健康」app。";
 
 /* The web view's file fields ("Take Photo or Video"): iOS ends an app that opens the camera without this. */
-"NSCameraUsageDescription" = "Calcpace 只會在你選擇為跑步或個人檔案拍照時使用相機。";
+"NSCameraUsageDescription" = "Calcpace 只會在你選擇拍攝要附加的照片或影片時使用相機，例如跑步照片、個人檔案照片或檔案。";
 
 /* Filming a video from the same file fields. */
 "NSMicrophoneUsageDescription" = "Calcpace 只會在你附加檔案時選擇錄影的情況下使用麥克風。";
 
 /* Choosing a photo from the library in the same file fields. */
 "NSPhotoLibraryUsageDescription" = "Calcpace 只會在你為跑步或個人檔案選擇照片時開啟你的照片。";
+
+/* "Save Image" in the share sheet of a run's card (ShareImageComponent): iOS ends an app that adds to the photos without this. */
+"NSPhotoLibraryAddUsageDescription" = "Calcpace 只會在你分享跑步時選擇「儲存影像」，才將影像存到你的照片。";

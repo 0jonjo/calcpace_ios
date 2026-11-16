@@ -5,10 +5,13 @@
 "NSHealthUpdateUsageDescription" = "O Calcpace não grava nada no app Saúde.";
 
 /* The web view's file fields ("Take Photo or Video"): iOS ends an app that opens the camera without this. */
-"NSCameraUsageDescription" = "O Calcpace usa a câmera só quando você escolhe tirar uma foto para uma corrida ou para o seu perfil.";
+"NSCameraUsageDescription" = "O Calcpace usa a câmera só quando você escolhe tirar uma foto ou gravar um vídeo para anexar, como a foto de uma corrida, a do seu perfil ou um arquivo.";
 
 /* Filming a video from the same file fields. */
 "NSMicrophoneUsageDescription" = "O Calcpace usa o microfone só se você escolher gravar um vídeo ao anexar um arquivo.";
 
 /* Choosing a photo from the library in the same file fields. */
 "NSPhotoLibraryUsageDescription" = "O Calcpace abre as suas fotos só quando você escolhe uma para uma corrida ou para o seu perfil.";
+
+/* "Save Image" in the share sheet of a run's card (ShareImageComponent): iOS ends an app that adds to the photos without this. */
+"NSPhotoLibraryAddUsageDescription" = "O Calcpace salva uma imagem nas suas fotos só quando você escolhe Salvar Imagem ao compartilhar uma corrida.";

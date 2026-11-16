@@ -99,7 +99,7 @@ jobs:
         run: |
           app=build-release/Build/Products/Release-iphonesimulator/Calcpace.app
           status=0
-          for key in NSCameraUsageDescription NSMicrophoneUsageDescription NSPhotoLibraryUsageDescription NSHealthShareUsageDescription NSHealthUpdateUsageDescription; do
+          for key in NSCameraUsageDescription NSMicrophoneUsageDescription NSPhotoLibraryUsageDescription NSPhotoLibraryAddUsageDescription NSHealthShareUsageDescription NSHealthUpdateUsageDescription; do
             value=$(/usr/libexec/PlistBuddy -c "Print :$key" "$app/Info.plist" 2>/dev/null) || { echo "missing $key in Info.plist"; status=1; continue; }
             echo "$key: $value"
             for strings in "$app"/*.lproj/InfoPlist.strings; do

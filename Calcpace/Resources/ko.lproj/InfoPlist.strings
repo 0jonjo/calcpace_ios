@@ -5,10 +5,13 @@
 "NSHealthUpdateUsageDescription" = "Calcpace는 '건강' 앱에 아무것도 저장하지 않아요.";
 
 /* The web view's file fields ("Take Photo or Video"): iOS ends an app that opens the camera without this. */
-"NSCameraUsageDescription" = "Calcpace는 달리기나 프로필 사진을 찍기로 선택할 때만 카메라를 사용합니다.";
+"NSCameraUsageDescription" = "Calcpace는 러닝 사진, 프로필 사진, 파일처럼 첨부할 사진이나 동영상을 찍기로 선택할 때만 카메라를 사용해요.";
 
 /* Filming a video from the same file fields. */
-"NSMicrophoneUsageDescription" = "Calcpace는 파일을 첨부하면서 동영상을 촬영하기로 선택할 때만 마이크를 사용합니다.";
+"NSMicrophoneUsageDescription" = "Calcpace는 파일을 첨부하면서 동영상을 촬영하기로 선택할 때만 마이크를 사용해요.";
 
 /* Choosing a photo from the library in the same file fields. */
-"NSPhotoLibraryUsageDescription" = "Calcpace는 달리기나 프로필에 쓸 사진을 선택할 때만 사진을 엽니다.";
+"NSPhotoLibraryUsageDescription" = "Calcpace는 러닝이나 프로필에 쓸 사진을 선택할 때만 사진을 열어요.";
+
+/* "Save Image" in the share sheet of a run's card (ShareImageComponent): iOS ends an app that adds to the photos without this. */
+"NSPhotoLibraryAddUsageDescription" = "Calcpace는 러닝을 공유할 때 이미지 저장을 선택한 경우에만 사진에 이미지를 저장해요.";

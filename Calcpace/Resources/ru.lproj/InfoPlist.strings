@@ -5,10 +5,13 @@
 "NSHealthUpdateUsageDescription" = "Calcpace ничего не записывает в приложение «Здоровье».";
 
 /* The web view's file fields ("Take Photo or Video"): iOS ends an app that opens the camera without this. */
-"NSCameraUsageDescription" = "Calcpace использует камеру, только когда вы решаете сделать фото для пробежки или профиля.";
+"NSCameraUsageDescription" = "Calcpace использует камеру, только когда вы решаете снять фото или видео для вложения, например фото пробежки, фото профиля или файл.";
 
 /* Filming a video from the same file fields. */
 "NSMicrophoneUsageDescription" = "Calcpace использует микрофон, только если вы решаете снять видео при прикреплении файла.";
 
 /* Choosing a photo from the library in the same file fields. */
 "NSPhotoLibraryUsageDescription" = "Calcpace открывает ваши фото, только когда вы выбираете одно для пробежки или профиля.";
+
+/* "Save Image" in the share sheet of a run's card (ShareImageComponent): iOS ends an app that adds to the photos without this. */
+"NSPhotoLibraryAddUsageDescription" = "Calcpace сохраняет изображение в ваши фото, только когда вы выбираете «Сохранить изображение» при отправке пробежки.";

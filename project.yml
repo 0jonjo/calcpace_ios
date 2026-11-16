@@ -79,9 +79,11 @@ targets:
         # file) offer "Take Photo or Video" and the photo library; iOS ends
         # an app that opens the camera without these (App Review 16/11,
         # guideline 2.1). Translated in each InfoPlist.strings.
-        NSCameraUsageDescription: "Calcpace uses the camera only when you choose to take a photo for a run or for your profile."
+        NSCameraUsageDescription: "Calcpace uses the camera only when you choose to take a photo or video to attach, such as a run's photo, your profile picture or a file."
         NSMicrophoneUsageDescription: "Calcpace uses the microphone only if you choose to film a video when attaching a file."
         NSPhotoLibraryUsageDescription: "Calcpace opens your photos only when you choose one for a run or for your profile."
+        # "Save Image" in the share sheet of a run's card (ShareImageComponent).
+        NSPhotoLibraryAddUsageDescription: "Calcpace saves an image to your photos only when you choose Save Image when sharing a run."
         # The site is light only: a dark clock everywhere, whatever iOS 26's
         # bars make of the page under them.
         UIViewControllerBasedStatusBarAppearance: false
