@@ -11,3 +11,15 @@
 "RunRecording" = "K měření vzdálenosti a tempa. Jen během nahrávání.";
 /* The app icon's quick action: recorder_shortcut_long. */
 "Record a run" = "Nahrát běh";
+
+/* The web view's file fields ("Take Photo or Video"): iOS ends an app that opens the camera without this. */
+"NSCameraUsageDescription" = "Calcpace používá fotoaparát jen tehdy, když se rozhodnete pořídit fotku nebo video k přiložení, například fotku běhu, profilovou fotku nebo soubor.";
+
+/* Filming a video from the same file fields. */
+"NSMicrophoneUsageDescription" = "Calcpace používá mikrofon jen tehdy, když se při přikládání souboru rozhodnete natočit video.";
+
+/* Choosing a photo from the library in the same file fields. */
+"NSPhotoLibraryUsageDescription" = "Calcpace otevře vaše fotky jen tehdy, když nějakou vyberete k běhu nebo do profilu.";
+
+/* "Save Image" in the share sheet of a run's card (ShareImageComponent): iOS ends an app that adds to the photos without this. */
+"NSPhotoLibraryAddUsageDescription" = "Calcpace uloží obrázek do vašich fotek jen tehdy, když při sdílení běhu zvolíte Uložit obrázek.";

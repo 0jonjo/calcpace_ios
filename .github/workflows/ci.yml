@@ -89,6 +89,27 @@ jobs:
             -derivedDataPath build-release \
             CODE_SIGNING_ALLOWED=NO
 
+      # iOS ends an app that opens the camera, the microphone or the photo
+      # library without saying why (App Review 2.1, 16/11: "Take Photo or
+      # Video" in a web file field). The simulator has no camera to prove
+      # it by tapping, so the release build is read instead: every purpose
+      # string in its Info.plist, and translated in every language.
+      - name: Purpose strings in the release build
+        if: matrix.phone == 'se'
+        run: |
+          app=build-release/Build/Products/Release-iphonesimulator/Calcpace.app
+          status=0
+          for key in NSCameraUsageDescription NSMicrophoneUsageDescription NSPhotoLibraryUsageDescription NSPhotoLibraryAddUsageDescription NSHealthShareUsageDescription NSHealthUpdateUsageDescription NSLocationWhenInUseUsageDescription NSLocationAlwaysAndWhenInUseUsageDescription; do
+            value=$(/usr/libexec/PlistBuddy -c "Print :$key" "$app/Info.plist" 2>/dev/null) || { echo "missing $key in Info.plist"; status=1; continue; }
+            echo "$key: $value"
+            for strings in "$app"/*.lproj/InfoPlist.strings; do
+              plutil -convert json -o - "$strings" | jq -e --arg k "$key" 'has($k)' > /dev/null \
+                || { echo "missing $key in $strings"; status=1; }
+            done
+          done
+          ls -d "$app"/*.lproj | wc -l
+          exit $status
+
       # simulator.mp4 is the whole run, installs included; app.mp4 is cut to
       # the UI tests, by the clock: when the recorder said it started, and
       # when xcodebuild printed the UI suite's start and end.
