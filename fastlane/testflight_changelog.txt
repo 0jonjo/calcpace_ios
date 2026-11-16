@@ -1,6 +1,10 @@
+CONSERTO: anexar foto ou vídeo pela câmera (foto da corrida, foto do perfil, arquivo GPX) não fecha mais o app. Salvar a imagem do cartão da corrida em Fotos também funciona.
+
 NOVO: gravador de corrida. Toque no botão redondo Gravar no meio da barra (ou segure o ícone do Calcpace › Gravar corrida), permita a localização e toque em Iniciar. Pode bloquear a tela: a gravação continua. Para encerrar, pause primeiro, toque em Encerrar e em Salvar corrida; a corrida sobe sozinha e abre a página dela. Sem internet, ela fica no celular e sobe depois.
 
 O que testar: grave uma corrida de verdade junto com o app ou relógio de sempre e me mande os dois números (distância e tempo). Conte se a gravação parou em algum momento.
+
+FIX: attaching a photo or video from the camera (a run photo, your profile picture, a GPX file) no longer closes the app. Saving a run card image to Photos works too.
 
 NEW: run recorder. Tap the round Record button in the middle of the bar (or long-press the Calcpace icon › Record a run), allow location and tap Start. You can lock the screen: recording goes on. To finish, pause first, then Finish and Save run; the run uploads by itself and opens its page. Offline, it waits on the phone and uploads later.
 
