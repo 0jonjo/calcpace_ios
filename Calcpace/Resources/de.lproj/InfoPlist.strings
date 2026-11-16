@@ -11,3 +11,15 @@
 "RunRecording" = "Um Distanz und Pace zu messen. Nur während du aufzeichnest.";
 /* The app icon's quick action: recorder_shortcut_long. */
 "Record a run" = "Lauf aufzeichnen";
+
+/* The web view's file fields ("Take Photo or Video"): iOS ends an app that opens the camera without this. */
+"NSCameraUsageDescription" = "Calcpace nutzt die Kamera nur, wenn du ein Foto oder Video zum Anhängen aufnehmen möchtest, etwa das Foto eines Laufs, dein Profilbild oder eine Datei.";
+
+/* Filming a video from the same file fields. */
+"NSMicrophoneUsageDescription" = "Calcpace nutzt das Mikrofon nur, wenn du beim Anhängen einer Datei ein Video aufnehmen möchtest.";
+
+/* Choosing a photo from the library in the same file fields. */
+"NSPhotoLibraryUsageDescription" = "Calcpace öffnet deine Fotos nur, wenn du eines für einen Lauf oder dein Profil auswählst.";
+
+/* "Save Image" in the share sheet of a run's card (ShareImageComponent): iOS ends an app that adds to the photos without this. */
+"NSPhotoLibraryAddUsageDescription" = "Calcpace speichert ein Bild nur dann in deinen Fotos, wenn du beim Teilen eines Laufs „Bild sichern“ wählst.";

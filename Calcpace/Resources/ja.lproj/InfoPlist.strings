@@ -11,3 +11,15 @@
 "RunRecording" = "距離とペースを測るためです。記録中だけ使います。";
 /* The app icon's quick action: recorder_shortcut_long. */
 "Record a run" = "ランを記録";
+
+/* The web view's file fields ("Take Photo or Video"): iOS ends an app that opens the camera without this. */
+"NSCameraUsageDescription" = "Calcpace がカメラを使うのは、ランの写真やプロフィール写真、ファイルなど、添付する写真や動画を撮ることを選んだときだけです。";
+
+/* Filming a video from the same file fields. */
+"NSMicrophoneUsageDescription" = "Calcpace がマイクを使うのは、ファイルを添付するときに動画を撮ることを選んだ場合だけです。";
+
+/* Choosing a photo from the library in the same file fields. */
+"NSPhotoLibraryUsageDescription" = "Calcpace が写真を開くのは、ランやプロフィール用に写真を選んだときだけです。";
+
+/* "Save Image" in the share sheet of a run's card (ShareImageComponent): iOS ends an app that adds to the photos without this. */
+"NSPhotoLibraryAddUsageDescription" = "Calcpace が写真に画像を保存するのは、ランを共有するときに「画像を保存」を選んだときだけです。";

@@ -11,3 +11,15 @@
 "RunRecording" = "Om afstand en tempo te meten. Alleen tijdens het vastleggen.";
 /* The app icon's quick action: recorder_shortcut_long. */
 "Record a run" = "Run vastleggen";
+
+/* The web view's file fields ("Take Photo or Video"): iOS ends an app that opens the camera without this. */
+"NSCameraUsageDescription" = "Calcpace gebruikt de camera alleen als je een foto of video wilt maken om toe te voegen, zoals de foto van een loop, je profielfoto of een bestand.";
+
+/* Filming a video from the same file fields. */
+"NSMicrophoneUsageDescription" = "Calcpace gebruikt de microfoon alleen als je een video wilt opnemen bij het toevoegen van een bestand.";
+
+/* Choosing a photo from the library in the same file fields. */
+"NSPhotoLibraryUsageDescription" = "Calcpace opent je foto’s alleen als je er een kiest voor een loop of je profiel.";
+
+/* "Save Image" in the share sheet of a run's card (ShareImageComponent): iOS ends an app that adds to the photos without this. */
+"NSPhotoLibraryAddUsageDescription" = "Calcpace bewaart alleen een afbeelding in je foto’s als je bij het delen van een loop Bewaar afbeelding kiest.";
