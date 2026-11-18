@@ -132,12 +132,18 @@ final class DemoAccountTests: XCTestCase {
         XCTAssertTrue(text("My Activities", in: webView).waitForExistence(timeout: 15), "the runs list is gone after the share sheet")
     }
 
-    // (b) The bar's "+" ("Log"), "Import file", and the file card's "Choose
-    // file": the system's document picker opens over the app, and is
-    // cancelled. Nothing is picked, nothing is sent.
+    // (b) "Add" beside the runs list's title, "Import file", and the file
+    // card's "Choose file": the system's document picker opens over the app,
+    // and is cancelled. Nothing is picked, nothing is sent. With the recorder
+    // switched on (RECORDER_ENTRY on the site), the app's tab bar has Record
+    // in its middle and the "+" ("Log") is hidden; "Add" opens the same
+    // sheet. With it off, the "+" is back in the bar and "Add" is hidden.
     private func checkFilePicker(_ app: XCUIApplication) {
         let webView = app.webViews.firstMatch
-        tap(control("Log", in: webView), "the Log tab", in: webView)
+        let add = control("Add", in: webView)
+        let log = control("Log", in: webView)
+        let door = waitForAny([add, log], timeout: 30) ?? add
+        tap(door, door == log ? "the Log tab" : "Add beside the runs list", in: webView)
         tap(control("Import file", in: webView), "Import file", in: webView)
         let chooseFile = text("Choose file", in: webView)
         tap(chooseFile, "Choose file", in: webView)
