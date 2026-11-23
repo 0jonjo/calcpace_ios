@@ -60,6 +60,20 @@ jobs:
                | .value[] | select(.name | test($names))
                | {udid, v: ($runtime.key | version)}]
             | sort_by(.v) | last | .udid // empty')
+          # Newer images ship fewer devices (Xcode 27 has no iPhone SE), so
+          # one is created when the runtime still supports a matching type.
+          if [ -z "$udid" ]; then
+            read -r type runtime < <(xcrun simctl list runtimes -j | jq -r --arg sdk "$sdk" --arg names "${{ matrix.names }}" '
+              def version: split(".") | map(tonumber) | .[0:2];
+              ($sdk | version) as $max
+              | [.runtimes[]
+                 | select(.platform == "iOS" and .isAvailable and ((.version | version) <= $max))
+                 | . as $runtime
+                 | .supportedDeviceTypes[] | select(.name | test($names))
+                 | {type: .identifier, runtime: $runtime.identifier, v: ($runtime.version | version)}]
+              | sort_by(.v) | last | select(.) | "\(.type) \(.runtime)"') || true
+            [ -n "$type" ] && udid=$(xcrun simctl create "CI ${{ matrix.phone }}" "$type" "$runtime")
+          fi
           [ -n "$udid" ] || { echo "no simulator matching ${{ matrix.names }} for iOS $sdk"; xcrun simctl list devices available; exit 1; }
           xcrun simctl list devices | grep "$udid"
           echo "SIMULATOR=$udid" >> "$GITHUB_ENV"
