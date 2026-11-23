@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   test:
-    runs-on: macos-15
+    runs-on: xcode-27
     timeout-minutes: 40
     # A phone with a home button and a flat status bar, and one with the
     # Dynamic Island, whose status bar is taller and covers the page's top
@@ -34,7 +34,7 @@ jobs:
 
       - uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: "26.3"
+          xcode-version: "27.2"
 
       - name: Generate the Xcode project
         env:
