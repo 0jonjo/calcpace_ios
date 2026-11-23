@@ -89,10 +89,15 @@ final class HealthTests: XCTestCase {
         attachScreenshot(of: app, named: "health-history")
         app.swipeUp()
         app.swipeUp()
-        allData.tap()
+        // A tap while the page still glides only stops it, so the option is
+        // tapped again until Allow turns on.
         let allow = app.buttons["UIA.Health.Allow.Button"].firstMatch
-        let enabled = NSPredicate(format: "enabled == true")
-        wait(for: [XCTNSPredicateExpectation(predicate: enabled, object: allow)], timeout: 5)
+        for _ in 0..<3 where !allow.isEnabled {
+            allData.tap()
+            let enabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: allow)
+            _ = XCTWaiter.wait(for: [enabled], timeout: 3)
+        }
+        XCTAssertTrue(allow.isEnabled, "Allow stays off after picking all recorded data")
         allow.tap()
     }
 
