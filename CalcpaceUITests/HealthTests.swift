@@ -63,8 +63,15 @@ final class HealthTests: XCTestCase {
         attachScreenshot(of: app, named: "health-sheet")
         turnOnAll.tap()
 
-        let allow = app.buttons["Allow"].firstMatch
-        XCTAssertTrue(allow.waitForExistence(timeout: 10), "no Allow button")
+        // Up to iOS 26, Allow is a button in the navigation bar; from iOS 27,
+        // a row at the end of the list, below the screen until scrolled to.
+        let button = app.buttons["Allow"].firstMatch
+        let row = app.staticTexts.matching(NSPredicate(format: "label == 'Allow'")).firstMatch
+        let either = NSPredicate { _, _ in button.exists || row.exists }
+        wait(for: [XCTNSPredicateExpectation(predicate: either, object: nil)], timeout: 10)
+        let allow = button.exists ? button : row
+        XCTAssertTrue(allow.exists, "no Allow button")
+        for _ in 0..<8 where !allow.isHittable { app.swipeUp() }
         allow.tap()
     }
 
