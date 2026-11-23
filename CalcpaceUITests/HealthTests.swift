@@ -63,16 +63,22 @@ final class HealthTests: XCTestCase {
         attachScreenshot(of: app, named: "health-sheet")
         turnOnAll.tap()
 
-        // Up to iOS 26, Allow is a button in the navigation bar; from iOS 27,
-        // a row at the end of the list, below the screen until scrolled to.
-        let button = app.buttons["Allow"].firstMatch
+        // Up to iOS 26, Allow is a button in the navigation bar. From iOS 27
+        // it is a button at the end of the list, below the screen, which
+        // reads "Continue" once every topic is on; off screen it shows only
+        // as an "Allow" text, so it is scrolled to and tapped by identifier.
+        let barButton = app.buttons["Allow"].firstMatch
         let row = app.staticTexts.matching(NSPredicate(format: "label == 'Allow'")).firstMatch
-        let either = NSPredicate { _, _ in button.exists || row.exists }
+        let either = NSPredicate { _, _ in barButton.exists || row.exists }
         wait(for: [XCTNSPredicateExpectation(predicate: either, object: nil)], timeout: 10)
-        let allow = button.exists ? button : row
-        XCTAssertTrue(allow.exists, "no Allow button")
-        for _ in 0..<8 where !allow.isHittable { app.swipeUp() }
-        allow.tap()
+        if barButton.exists {
+            barButton.tap()
+            return
+        }
+        let listButton = app.buttons["UIA.Health.Allow.Button"].firstMatch
+        for _ in 0..<8 where !(listButton.exists && listButton.isHittable) { app.swipeUp() }
+        XCTAssertTrue(listButton.exists && listButton.isHittable, "no Allow button")
+        listButton.tap()
     }
 
     private func attachScreenshot(of app: XCUIApplication, named name: String) {
