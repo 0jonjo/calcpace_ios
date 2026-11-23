@@ -79,6 +79,21 @@ final class HealthTests: XCTestCase {
         for _ in 0..<8 where !(listButton.exists && listButton.isHittable) { app.swipeUp() }
         XCTAssertTrue(listButton.exists && listButton.isHittable, "no Allow button")
         listButton.tap()
+
+        // iOS 27 then asks how far back to share, with Allow off until one
+        // is picked. The harness reads a run of 41 days ago, so all recorded
+        // data; on a small phone the floating buttons cover that option
+        // until the page is scrolled.
+        let allData = app.staticTexts["All Recorded Data and Future Data"].firstMatch
+        XCTAssertTrue(allData.waitForExistence(timeout: 10), "no how-far-back page")
+        attachScreenshot(of: app, named: "health-history")
+        app.swipeUp()
+        app.swipeUp()
+        allData.tap()
+        let allow = app.buttons["UIA.Health.Allow.Button"].firstMatch
+        let enabled = NSPredicate(format: "enabled == true")
+        wait(for: [XCTNSPredicateExpectation(predicate: enabled, object: allow)], timeout: 5)
+        allow.tap()
     }
 
     private func attachScreenshot(of app: XCUIApplication, named name: String) {
