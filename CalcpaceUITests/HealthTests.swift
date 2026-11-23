@@ -50,11 +50,12 @@ final class HealthTests: XCTestCase {
     }
 
     // HealthKit's sheet, drawn inside the app: turn every type on, then
-    // allow. Its labels are the simulator's English. A simulator that
-    // answered it on an earlier run shows none, and the harness goes on.
+    // allow. Its labels are the simulator's English: "Turn On All" up to
+    // iOS 26, "Select All 8 Topics" from iOS 27. A simulator that answered
+    // it on an earlier run shows none, and the harness goes on.
     private func allowHealthAccess(in app: XCUIApplication) {
         let turnOnAll = app.descendants(matching: .any)
-            .matching(NSPredicate(format: "label BEGINSWITH 'Turn On All'")).firstMatch
+            .matching(NSPredicate(format: "label BEGINSWITH 'Turn On All' OR label BEGINSWITH 'Select All'")).firstMatch
         guard turnOnAll.waitForExistence(timeout: 120) else {
             attachScreenshot(of: app, named: "no-health-sheet")
             return
