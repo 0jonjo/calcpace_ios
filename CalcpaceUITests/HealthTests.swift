@@ -91,7 +91,9 @@ final class HealthTests: XCTestCase {
         app.swipeUp()
         // A tap while the page still glides only stops it, so the option is
         // tapped again until Allow turns on.
-        let allow = app.buttons["UIA.Health.Allow.Button"].firstMatch
+        // This page's Allow has no identifier, only its label.
+        let allow = app.buttons.matching(NSPredicate(format: "label == 'Allow'")).firstMatch
+        XCTAssertTrue(allow.waitForExistence(timeout: 5), "no Allow on the how-far-back page")
         for _ in 0..<3 where !allow.isEnabled {
             allData.tap()
             let enabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: allow)
