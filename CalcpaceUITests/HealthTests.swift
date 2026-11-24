@@ -50,11 +50,12 @@ final class HealthTests: XCTestCase {
     }
 
     // HealthKit's sheet, drawn inside the app: turn every type on, then
-    // allow. Its labels are the simulator's English. A simulator that
-    // answered it on an earlier run shows none, and the harness goes on.
+    // allow. Its labels are the simulator's English: "Turn On All" up to
+    // iOS 26, "Select All 8 Topics" from iOS 27. A simulator that answered
+    // it on an earlier run shows none, and the harness goes on.
     private func allowHealthAccess(in app: XCUIApplication) {
         let turnOnAll = app.descendants(matching: .any)
-            .matching(NSPredicate(format: "label BEGINSWITH 'Turn On All'")).firstMatch
+            .matching(NSPredicate(format: "label BEGINSWITH 'Turn On All' OR label BEGINSWITH 'Select All'")).firstMatch
         guard turnOnAll.waitForExistence(timeout: 120) else {
             attachScreenshot(of: app, named: "no-health-sheet")
             return
@@ -62,8 +63,43 @@ final class HealthTests: XCTestCase {
         attachScreenshot(of: app, named: "health-sheet")
         turnOnAll.tap()
 
-        let allow = app.buttons["Allow"].firstMatch
-        XCTAssertTrue(allow.waitForExistence(timeout: 10), "no Allow button")
+        // Up to iOS 26, Allow is a button in the navigation bar. From iOS 27
+        // it is a button at the end of the list, below the screen, which
+        // reads "Continue" once every topic is on; off screen it shows only
+        // as an "Allow" text, so it is scrolled to and tapped by identifier.
+        let barButton = app.buttons["Allow"].firstMatch
+        let row = app.staticTexts.matching(NSPredicate(format: "label == 'Allow'")).firstMatch
+        let either = NSPredicate { _, _ in barButton.exists || row.exists }
+        wait(for: [XCTNSPredicateExpectation(predicate: either, object: nil)], timeout: 10)
+        if barButton.exists {
+            barButton.tap()
+            return
+        }
+        let listButton = app.buttons["UIA.Health.Allow.Button"].firstMatch
+        for _ in 0..<8 where !(listButton.exists && listButton.isHittable) { app.swipeUp() }
+        XCTAssertTrue(listButton.exists && listButton.isHittable, "no Allow button")
+        listButton.tap()
+
+        // iOS 27 then asks how far back to share, with Allow off until one
+        // is picked. The harness reads a run of 41 days ago, so all recorded
+        // data; on a small phone the floating buttons cover that option
+        // until the page is scrolled.
+        let allData = app.staticTexts["All Recorded Data and Future Data"].firstMatch
+        XCTAssertTrue(allData.waitForExistence(timeout: 10), "no how-far-back page")
+        attachScreenshot(of: app, named: "health-history")
+        app.swipeUp()
+        app.swipeUp()
+        // A tap while the page still glides only stops it, so the option is
+        // tapped again until Allow turns on.
+        // This page's Allow has no identifier, only its label.
+        let allow = app.buttons.matching(NSPredicate(format: "label == 'Allow'")).firstMatch
+        XCTAssertTrue(allow.waitForExistence(timeout: 5), "no Allow on the how-far-back page")
+        for _ in 0..<3 where !allow.isEnabled {
+            allData.tap()
+            let enabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: allow)
+            _ = XCTWaiter.wait(for: [enabled], timeout: 3)
+        }
+        XCTAssertTrue(allow.isEnabled, "Allow stays off after picking all recorded data")
         allow.tap()
     }
 

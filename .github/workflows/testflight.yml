@@ -50,7 +50,7 @@ jobs:
 
   fastlane:
     needs: secrets
-    runs-on: macos-15
+    runs-on: xcode-27
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
@@ -58,7 +58,7 @@ jobs:
       # The same Xcode as ci.yml, so what ships is what the tests built.
       - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
         with:
-          xcode-version: "26.3"
+          xcode-version: "27.2"
 
       # fastlane beta runs xcodegen generate itself.
       - name: Install XcodeGen
