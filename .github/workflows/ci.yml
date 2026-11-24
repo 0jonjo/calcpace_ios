@@ -93,7 +93,8 @@ jobs:
       # library without saying why (App Review 2.1, 16/11: "Take Photo or
       # Video" in a web file field). The simulator has no camera to prove
       # it by tapping, so the release build is read instead: every purpose
-      # string in its Info.plist, and translated in every language.
+      # string in its Info.plist, and translated in every language. And the
+      # privacy manifest, which App Store Connect asks of UserDefaults.
       - name: Purpose strings in the release build
         if: matrix.phone == 'se'
         run: |
@@ -108,6 +109,8 @@ jobs:
             done
           done
           ls -d "$app"/*.lproj | wc -l
+          # The privacy manifest (ITMS-91053): in the bundle and readable.
+          plutil -lint "$app/PrivacyInfo.xcprivacy" || { echo "missing PrivacyInfo.xcprivacy"; status=1; }
           exit $status
 
       # simulator.mp4 is the whole run, installs included; app.mp4 is cut to
