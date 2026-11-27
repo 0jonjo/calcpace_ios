@@ -1,1 +1,7 @@
-Calculadora › Performance por Idade: o botão "Compartilhar imagem" abre a folha de compartilhar com a imagem do tempo equivalente na idade marcada.
+NOVO: imagem da Performance por Idade. Na Calculadora › Performance por Idade, calcule e toque em "Compartilhar imagem": abre a folha de compartilhar com o tempo equivalente na idade marcada.
+
+O que testar: troque a idade (auge, 40, 50…) antes de tocar e veja se a imagem segue a idade escolhida.
+
+NEW: age grade picture. In Calculator › Age Grade, calculate and tap "Share image": the share sheet opens with the equivalent time at the checked age.
+
+What to test: switch the age (peak, 40, 50…) before tapping and check the picture follows it.
