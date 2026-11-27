@@ -15,14 +15,15 @@ import WebKit
 ///   athlete taps again).
 ///
 /// Only while the WebView shows a run's page (`SharePages`); messages sent
-/// from any other page get no answer. One share at a time: a "share" that
+/// from any other page get no answer. `SharePublicImageComponent` is the same
+/// on the calculator's page, under a name of its own. One share at a time: a "share" that
 /// arrives while another is being prepared (a double tap) is ignored and never
 /// answered; the first one's answer stands for both. The page gives up on an
 /// unanswered message after a while and says the share failed.
 ///
 /// Decoding and writing happen off the main thread. If the page went away in
 /// the meantime, nothing is shown and nothing is answered.
-final class ShareImageComponent: BridgeComponent {
+class ShareImageComponent: BridgeComponent {
     override class var name: String { "share-image" }
 
     private var preparing = false
@@ -32,12 +33,12 @@ final class ShareImageComponent: BridgeComponent {
     }
 
     override func onReceive(message: Message) {
-        guard message.event == "share", !preparing, onRunPage else { return }
+        guard message.event == "share", !preparing, onAllowedPage else { return }
 
         preparing = true
         let jsonData = message.jsonData
         Task {
-            let prepared = await Task.detached(priority: .userInitiated) { Self.prepare(jsonData) }.value
+            let prepared = await Task.detached(priority: .userInitiated) { ShareImageComponent.prepare(jsonData) }.value
             preparing = false
             show(prepared, answering: message)
         }
@@ -56,8 +57,13 @@ final class ShareImageComponent: BridgeComponent {
         var error: String? = nil
     }
 
-    private var onRunPage: Bool {
-        SharePages.isRunPage(delegate?.webView?.url, rootURL: AppDelegate.rootURL)
+    /// The page this component answers on.
+    class func allows(_ location: URL?) -> Bool {
+        SharePages.isRunPage(location, rootURL: AppDelegate.rootURL)
+    }
+
+    private var onAllowedPage: Bool {
+        Self.allows(delegate?.webView?.url)
     }
 
     private nonisolated static func prepare(_ jsonData: String) -> Prepared {
@@ -68,7 +74,7 @@ final class ShareImageComponent: BridgeComponent {
 
     private func show(_ prepared: Prepared, answering message: Message) {
         // Gone, or the WebView moved on to another page: drop it quietly.
-        guard let viewController, onRunPage else { return }
+        guard let viewController, onAllowedPage else { return }
 
         switch prepared {
         case .invalid:
@@ -97,5 +103,18 @@ final class ShareImageComponent: BridgeComponent {
 
     private func answer(_ message: Message, _ reply: Reply) {
         self.reply(with: message.replacing(data: reply))
+    }
+}
+
+/// The site's "share-public-image" bridge component
+/// (bridge/share_public_image_controller.js): the age grade's picture on the
+/// calculator's page, through the same message and sheet as "share-image". A
+/// name of its own so that an app from before it (1.1.0), which accepts
+/// "share-image" on a run's page only, is never asked from the calculator.
+final class SharePublicImageComponent: ShareImageComponent {
+    override class var name: String { "share-public-image" }
+
+    override class func allows(_ location: URL?) -> Bool {
+        SharePages.isCalculatorPage(location, rootURL: AppDelegate.rootURL)
     }
 }

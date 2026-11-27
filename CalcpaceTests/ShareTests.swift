@@ -55,6 +55,32 @@ final class SharePagesTests: XCTestCase {
         }
         XCTAssertFalse(SharePages.isRunPage(nil, rootURL: root))
     }
+
+    // "share-public-image": the age grade's picture, on the calculator's page.
+    func testTheCalculatorInAnyLanguage() {
+        for location in ["https://calcpace.app/calculator", "https://calcpace.app/calculator/",
+                         "https://calcpace.app/pt-BR/calculator", "https://calcpace.app/zh-TW/calculator#result",
+                         "https://calcpace.app/pt-BR/calculator?mode=age_grade&race=10k&from_time=00:52:10&age=63&sex=male"] {
+            XCTAssertTrue(SharePages.isCalculatorPage(URL(string: location), rootURL: root), location)
+        }
+    }
+
+    func testNothingButTheCalculator() {
+        for location in ["https://calcpace.app/", "https://calcpace.app/calculators", "https://calcpace.app/calculator/x",
+                         "https://calcpace.app//calculator", "https://calcpace.app/xx/calculator",
+                         "https://calcpace.app/Calculator", "https://calcpace.app/%63alculator",
+                         "https://calcpace.app/pt-BR/result/10k/52-10", "https://calcpace.app/activities/12",
+                         "https://calcpace.app.evil.example/calculator", "https://evil.example/calculator"] {
+            XCTAssertFalse(SharePages.isCalculatorPage(URL(string: location), rootURL: root), location)
+        }
+        XCTAssertFalse(SharePages.isRunPage(URL(string: "https://calcpace.app/pt-BR/calculator"), rootURL: root))
+        XCTAssertFalse(SharePages.isCalculatorPage(nil, rootURL: root))
+    }
+
+    func testTheComponentsAreNamedForTheSite() {
+        XCTAssertEqual(ShareImageComponent.name, "share-image")
+        XCTAssertEqual(SharePublicImageComponent.name, "share-public-image")
+    }
 }
 
 final class ShareFilesTests: XCTestCase {
