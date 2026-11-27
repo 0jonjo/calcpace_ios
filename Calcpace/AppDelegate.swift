@@ -25,7 +25,9 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         // Sign in with Apple, so it may show the social sign-in buttons.
         // "recorder" is only listed too: it tells the site this build records
         // runs, so the bar's middle becomes Record (RecordRouteDecisionHandler).
-        Hotwire.registerBridgeComponents([ShareImageComponent.self, AppleHealthComponent.self, PushComponent.self, AppleSignInComponent.self, RecorderComponent.self])
+        // "share-public-image" hands the calculator's age grade picture to the
+        // share sheet (from 1.1.1; "share-image" stays on a run's page only).
+        Hotwire.registerBridgeComponents([ShareImageComponent.self, AppleHealthComponent.self, PushComponent.self, AppleSignInComponent.self, RecorderComponent.self, SharePublicImageComponent.self])
 
         // Before launch finishes, or iOS never hands the task over: the runs
         // recorded and not yet up go with the app closed.
